@@ -18,6 +18,8 @@
  */
 package com.iohao.game.widget.light.room.operation;
 
+import com.iohao.game.common.kit.OperationCode;
+
 /**
  * 玩法操作相关服务。获取 user 的玩法操作、所有玩法操作、玩法操作工厂。
  *
@@ -51,4 +53,11 @@ public interface OperationService {
         return this.getOperationFactory().getUserOperationHandler(operation);
     }
 
+    default OperationHandler getOperationHandler(OperationCode operationCode) {
+        return this.getOperationHandler(operationCode.getOperationCode());
+    }
+
+    default OperationHandler getUserOperationHandler(OperationCode operationCode) {
+        return this.getUserOperationHandler(operationCode.getOperationCode());
+    }
 }

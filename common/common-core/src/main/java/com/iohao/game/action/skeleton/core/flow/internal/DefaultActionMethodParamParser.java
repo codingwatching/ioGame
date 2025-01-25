@@ -25,12 +25,11 @@ import com.iohao.game.action.skeleton.core.flow.ActionMethodParamParser;
 import com.iohao.game.action.skeleton.core.flow.FlowContext;
 import com.iohao.game.action.skeleton.core.flow.attr.FlowAttr;
 import com.iohao.game.action.skeleton.core.flow.parser.MethodParsers;
-import com.iohao.game.action.skeleton.protocol.ResponseMessage;
 
 import java.util.Objects;
 
 /**
- * 业务方法参数解析器
+ * flow - 业务方法参数解析器
  *
  * @author 渔民小镇
  * @date 2022-01-12
@@ -45,50 +44,46 @@ public final class DefaultActionMethodParamParser implements ActionMethodParamPa
             return METHOD_PARAMS;
         }
 
-        // 请求、响应对象
-        var request = flowContext.getRequest();
-        var response = flowContext.getResponse();
-
         // 方法参数信息 数组
-        final var paramInfos = actionCommand.getParamInfos();
+        var paramInfos = actionCommand.getParamInfos();
+        var params = new Object[paramInfos.length];
 
-        final var len = paramInfos.length;
-        final var params = new Object[len];
-
-        for (int i = 0; i < len; i++) {
+        for (int i = 0; i < paramInfos.length; i++) {
             // 方法参数信息
             ActionCommand.ParamInfo paramInfo = paramInfos[i];
-
             // flow 上下文
             if (paramInfo.isFlowContext()) {
                 params[i] = flowContext;
                 continue;
             }
 
+            // 业务参数
+            var data = flowContext.getRequest().getData();
             // 得到方法参数解析器，把字节解析成 action 业务参数
-            Class<?> paramClazz = paramInfo.getActualTypeArgumentClazz();
+            var paramClazz = paramInfo.getActualTypeArgumentClazz();
             var methodParser = MethodParsers.getMethodParser(paramClazz);
-            var param = methodParser.parseParam(request.getData(), paramInfo);
+            var param = methodParser.parseParam(data, paramInfo);
             params[i] = param;
 
             flowContext.option(FlowAttr.actionBizParam, param);
 
             // 如果开启了验证
             if (paramInfo.isValidator()) {
-                extractedValidator(response, paramInfo, param);
+                extractedValidator(flowContext, paramInfo, param);
             }
         }
 
         return params;
     }
 
-    private static void extractedValidator(ResponseMessage response, ActionCommand.ParamInfo paramInfo, Object param) {
+    private void extractedValidator(FlowContext flowContext, ActionCommand.ParamInfo paramInfo, Object param) {
         // 获取分组信息
         Class<?>[] groups = paramInfo.getValidatorGroups();
         // 进行 JSR380 相关的验证
         String validateMsg = ValidatorKit.validate(param, groups);
         // 有错误消息，表示验证不通过
         if (Objects.nonNull(validateMsg)) {
+            var response = flowContext.getResponse();
             response.setValidatorMsg(validateMsg);
             response.setResponseStatus(ActionErrorEnum.validateErrCode.getCode());
         }

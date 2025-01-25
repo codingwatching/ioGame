@@ -19,6 +19,7 @@
 package com.iohao.game.common.kit.concurrent.executor;
 
 import com.iohao.game.common.kit.ExecutorKit;
+import com.iohao.game.common.kit.RuntimeKit;
 
 import java.util.concurrent.ExecutorService;
 
@@ -32,9 +33,11 @@ import java.util.concurrent.ExecutorService;
  * @date 2023-12-19
  */
 final class UserVirtualThreadExecutorRegion extends AbstractThreadExecutorRegion {
+    final int executorLength;
 
     UserVirtualThreadExecutorRegion(String threadName) {
-        super(threadName, UserThreadExecutorRegion.availableProcessors2n());
+        super(threadName, RuntimeKit.availableProcessors2n);
+        this.executorLength = RuntimeKit.availableProcessors2n - 1;
     }
 
     /**
@@ -45,7 +48,7 @@ final class UserVirtualThreadExecutorRegion extends AbstractThreadExecutorRegion
      */
     @Override
     public ThreadExecutor getThreadExecutor(long userId) {
-        int index = (int) (userId & (this.executorLength - 1));
+        int index = (int) (userId & this.executorLength);
         return this.threadExecutors[index];
     }
 

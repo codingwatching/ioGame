@@ -23,26 +23,25 @@ import com.esotericsoftware.reflectasm.ConstructorAccess;
 import com.esotericsoftware.reflectasm.MethodAccess;
 import com.iohao.game.action.skeleton.annotation.ActionController;
 import com.iohao.game.action.skeleton.annotation.ActionMethod;
-import com.iohao.game.action.skeleton.core.action.parser.ProtobufCheckActionParserListener;
+import com.iohao.game.action.skeleton.core.action.parser.ActionParserContext;
+import com.iohao.game.action.skeleton.core.action.parser.ActionParserListener;
 import com.iohao.game.action.skeleton.core.codec.ProtoDataCodec;
 import com.iohao.game.action.skeleton.core.doc.ActionCommandDoc;
 import com.iohao.game.action.skeleton.core.doc.ActionDoc;
-import com.iohao.game.action.skeleton.core.doc.ActionDocs;
-import com.iohao.game.action.skeleton.core.action.parser.ProtobufActionParserListener;
-import com.iohao.game.action.skeleton.core.action.parser.ActionParserListener;
-import com.iohao.game.action.skeleton.core.action.parser.ActionParserContext;
+import com.iohao.game.action.skeleton.core.doc.IoGameDocumentHelper;
+import com.iohao.game.action.skeleton.toy.IoGameBanner;
 import com.iohao.game.common.kit.StrKit;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import lombok.experimental.FieldDefaults;
+import org.jctools.maps.NonBlockingHashMap;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Stream;
 
 /**
@@ -88,7 +87,6 @@ final class ActionCommandParser {
         this.getActionControllerStream(controllerList).forEach(controllerClazz -> {
             // 方法访问器: 获取类中自己定义的方法
             var methodAccess = MethodAccess.get(controllerClazz);
-            var constructorAccess = ConstructorAccess.get(controllerClazz);
 
             // 主路由 (类上的路由)
             int cmd = controllerClazz.getAnnotation(ActionController.class).value();
@@ -103,13 +101,16 @@ final class ActionCommandParser {
 
             // 遍历所有方法上有 ActionMethod 注解的方法对象
             this.getMethodStream(controllerClazz).forEach(method -> {
+                // 相同的 action 方法名只允许存在一个，建议与路由同名。
+                checkSoleActionName(method, actionCommandRegion, doc);
 
                 // 目标子路由 (方法上的路由)
                 int subCmd = method.getAnnotation(ActionMethod.class).value();
                 // 方法名
                 String methodName = method.getName();
                 // 方法下标
-                int methodIndex = methodAccess.getIndex(methodName);
+                Class<?>[] parameterTypes = method.getParameterTypes();
+                int methodIndex = methodAccess.getIndex(methodName, parameterTypes);
                 // 方法返回值类型
                 Class<?> returnType = methodAccess.getReturnTypes()[methodIndex];
                 // source doc
@@ -120,7 +121,6 @@ final class ActionCommandParser {
                         .setCmd(cmd)
                         .setSubCmd(subCmd)
                         .setActionControllerClazz(controllerClazz)
-                        .setActionControllerConstructorAccess(constructorAccess)
                         .setActionMethod(method)
                         .setActionMethodName(methodName)
                         .setActionMethodIndex(methodIndex)
@@ -147,7 +147,7 @@ final class ActionCommandParser {
                 actionCommandRegion.add(command);
 
                 // 文档相关
-                ActionDoc actionDoc = ActionDocs.ofActionDoc(cmd, controllerClazz);
+                ActionDoc actionDoc = IoGameDocumentHelper.ofActionDoc(cmd, controllerClazz);
                 actionDoc.addActionCommand(command);
             });
         });
@@ -255,7 +255,40 @@ final class ActionCommandParser {
                     subCmd,
                     controllerClass);
 
-            throw new RuntimeException(message);
+            IoGameBanner.me().ofRuntimeException(message);
+        }
+    }
+
+    private void checkSoleActionName(Method method,
+                                     ActionCommandRegion actionCommandRegion,
+                                     ActionCommandDocParser doc) {
+
+        for (ActionCommand command : actionCommandRegion.values()) {
+
+            if (Objects.equals(method.getName(), command.actionMethodName)) {
+                int cmd = actionCommandRegion.cmd;
+                // 目标子路由 (方法上的路由)
+                int subCmd = method.getAnnotation(ActionMethod.class).value();
+                ActionCommandDoc actionCommandDoc = doc.getActionCommandDoc(cmd, subCmd);
+
+                String template = """
+                        [action 方法重名] 同一个类中相同的 action 方法名只允许存在一个，建议与路由同名。
+                            see-1 : %s - %s.%s(%s.java:%d)
+                            see-2 : %s - %s.%s(%s.java:%d)""";
+
+                Class<?> actionControllerClazz = actionCommandRegion.getActionControllerClazz();
+                String simpleName = actionControllerClazz.getSimpleName();
+
+                var message = template.formatted(
+                        CmdInfo.of(cmd, subCmd), actionControllerClazz, method.getName()
+                        , simpleName, actionCommandDoc.getLineNumber(),
+
+                        command.getCmdInfo(), actionControllerClazz, method.getName()
+                        , simpleName, command.getActionCommandDoc().getLineNumber()
+                );
+
+                IoGameBanner.me().ofRuntimeException(message);
+            }
         }
     }
 
@@ -278,7 +311,7 @@ final class ActionCommandParser {
             // action command, actionMethod
             actionCommandRegion.getSubActionCommandMap().forEach((subCmd, command) -> {
                 // action 构建时的上下文
-                ActionParserContext context = new ActionParserContext()
+                var context = new ActionParserContext()
                         .setBarSkeleton(barSkeleton)
                         .setActionCommand(command);
 
@@ -293,29 +326,34 @@ final class ActionCommandParser {
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 final class ActionParserListeners {
-    final List<ActionParserListener> listeners = new CopyOnWriteArrayList<>();
+    final Map<Class<?>, ActionParserListener> map = new NonBlockingHashMap<>();
 
     void addActionParserListener(ActionParserListener listener) {
-        this.listeners.add(listener);
+        Objects.requireNonNull(listener);
+        this.map.putIfAbsent(listener.getClass(), listener);
     }
 
     void onActionCommand(ActionParserContext context) {
-        this.listeners.forEach(listener -> listener.onActionCommand(context));
+        this.map.forEach((clazz, listener) -> listener.onActionCommand(context));
     }
 
     void onAfter(BarSkeleton barSkeleton) {
-        this.listeners.forEach(listener -> listener.onAfter(barSkeleton));
+        this.map.forEach((clazz, listener) -> listener.onAfter(barSkeleton));
     }
 
-    public boolean isEmpty() {
-        return this.listeners.isEmpty();
-    }
-
-    public ActionParserListeners() {
+    ActionParserListeners() {
         // 监听器 - 预先创建协议代理类
         if (DataCodecKit.getDataCodec() instanceof ProtoDataCodec) {
-            this.addActionParserListener(ProtobufActionParserListener.me());
-            this.addActionParserListener(ProtobufCheckActionParserListener.me());
+            this.addActionParserListener(new ProtobufActionParserListener());
+            this.addActionParserListener(new ProtobufCheckActionParserListener());
         }
+
+        // prepared actionControllerConstructorAccess
+        this.addActionParserListener(context -> {
+            var actionCommand = context.getActionCommand();
+            if (!actionCommand.isDeliveryContainer()) {
+                actionCommand.actionControllerConstructorAccess = ConstructorAccess.get(actionCommand.actionControllerClazz);
+            }
+        });
     }
 }

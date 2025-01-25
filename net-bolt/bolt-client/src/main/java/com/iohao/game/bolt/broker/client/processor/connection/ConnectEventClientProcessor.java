@@ -21,6 +21,8 @@ package com.iohao.game.bolt.broker.client.processor.connection;
 import com.alipay.remoting.Connection;
 import com.alipay.remoting.ConnectionEventProcessor;
 import com.alipay.remoting.ConnectionEventType;
+import com.iohao.game.action.skeleton.i18n.Bundle;
+import com.iohao.game.action.skeleton.i18n.MessageKey;
 import com.iohao.game.bolt.broker.core.aware.BrokerClientItemAware;
 import com.iohao.game.bolt.broker.core.client.BrokerClient;
 import com.iohao.game.bolt.broker.core.client.BrokerClientItem;
@@ -62,12 +64,6 @@ public class ConnectEventClientProcessor implements ConnectionEventProcessor, Br
     }
 
     private void extracted(String remoteAddress, Connection conn) {
-        if (IoGameGlobalConfig.openLog) {
-            log.info("连接网关 ConnectionEventType:【{}】 remoteAddress:【{}】，Connection:【{}】",
-                    ConnectionEventType.CONNECT, remoteAddress, conn
-            );
-        }
-
         doCheckConnection(conn);
         this.remoteAddress = remoteAddress;
         this.connection = conn;
@@ -79,21 +75,24 @@ public class ConnectEventClientProcessor implements ConnectionEventProcessor, Br
         brokerClientItem.setConnection(conn);
         count.increment();
 
-        if (IoGameGlobalConfig.openLog) {
-            BrokerClient brokerClient = brokerClientItem.getBrokerClient();
-            BrokerClientManager brokerClientManager = brokerClient.getBrokerClientManager();
+        BrokerClient brokerClient = brokerClientItem.getBrokerClient();
+        BrokerClientManager brokerClientManager = brokerClient.getBrokerClientManager();
+        // 重连
+        brokerClientManager.register(brokerClientItem);
 
-            log.info("连接网关 ConnectionEventType:【{}】 remoteAddress:【{}】，网关连接数量:【{}】",
-                    ConnectionEventType.CONNECT, remoteAddress, brokerClientManager.countActiveItem()
+        if (IoGameGlobalConfig.openLog) {
+            String gameBrokerServerConnectionAmount = Bundle.getMessage(MessageKey.gameBrokerServerConnectionAmount);
+
+            log.info("ConnectionEventType:【{}】 remoteAddress:【{}】，{}:【{}】，registerActive:【{}】",
+                    ConnectionEventType.CONNECT,
+                    remoteAddress,
+                    gameBrokerServerConnectionAmount,
+                    brokerClientManager.countItem(),
+                    brokerClientManager.countActiveItem()
             );
         }
     }
 
-    /**
-     * do check connection
-     *
-     * @param conn
-     */
     private void doCheckConnection(Connection conn) {
         Objects.requireNonNull(conn);
         Objects.requireNonNull(conn.getPoolKeys());
@@ -127,5 +126,4 @@ public class ConnectEventClientProcessor implements ConnectionEventProcessor, Br
         this.connected.set(false);
         this.connection = null;
     }
-
 }

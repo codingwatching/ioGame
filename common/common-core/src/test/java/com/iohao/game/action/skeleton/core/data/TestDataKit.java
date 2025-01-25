@@ -22,8 +22,10 @@ import com.iohao.game.action.skeleton.annotation.ActionController;
 import com.iohao.game.action.skeleton.core.*;
 import com.iohao.game.action.skeleton.core.action.BeeAction;
 import com.iohao.game.action.skeleton.core.flow.FlowContext;
+import com.iohao.game.action.skeleton.core.flow.attr.FlowAttr;
 import com.iohao.game.action.skeleton.core.flow.internal.DebugInOut;
 import com.iohao.game.action.skeleton.protocol.RequestMessage;
+import com.iohao.game.action.skeleton.toy.IoGameBanner;
 import com.iohao.game.common.kit.ClassScanner;
 import lombok.experimental.UtilityClass;
 
@@ -44,7 +46,7 @@ public class TestDataKit {
 
         builder.addInOut(new DebugInOut());
 
-        builder.setActionAfter(flowContext -> System.out.println());
+        builder.setActionAfter(flowContext -> IoGameBanner.printLine());
 
         List<Class<?>> classList = getClasses(appendPredicateFilter);
 
@@ -86,11 +88,33 @@ public class TestDataKit {
         return createBuilder(null);
     }
 
+    public FlowContext ofFlowContext(CmdInfo cmdInfo) {
+        return ofFlowContext(cmdInfo, null);
+    }
+
     public FlowContext ofFlowContext(CmdInfo cmdInfo, Object data) {
         RequestMessage requestMessage = BarMessageKit.createRequestMessage(cmdInfo, data);
 
         FlowContext flowContext = new FlowContext();
         flowContext.setRequest(requestMessage);
+
+        return flowContext;
+    }
+
+    public FlowContext ofFlowContext() {
+        FlowContext flowContext = new FlowContext();
+
+        var builder = new BarSkeletonBuilderParamConfig().createBuilder();
+        var setting = builder.getSetting();
+        setting.setPrint(false);
+        var skeleton = builder.build();
+        flowContext.setBarSkeleton(skeleton);
+
+        RequestMessage requestMessage = BarMessageKit.createRequestMessage(CmdInfo.of(1, 1));
+        flowContext.setRequest(requestMessage);
+
+        var threadExecutor = flowContext.getThreadExecutor();
+        flowContext.option(FlowAttr.threadExecutor, threadExecutor);
 
         return flowContext;
     }

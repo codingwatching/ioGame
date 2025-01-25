@@ -19,6 +19,7 @@
 package com.iohao.game.widget.light.room.operation;
 
 import com.iohao.game.action.skeleton.core.flow.FlowContext;
+import com.iohao.game.widget.light.domain.event.message.Eo;
 import com.iohao.game.widget.light.room.Room;
 import com.iohao.game.widget.light.room.domain.OperationContextEventHandler;
 import lombok.Getter;
@@ -47,7 +48,7 @@ import lombok.experimental.Accessors;
 @Getter
 @Setter
 @Accessors(chain = true)
-public class OperationContext implements PlayerOperationContext {
+public class OperationContext implements PlayerOperationContext, Eo {
     /** room */
     final Room room;
     /** 玩法操作业务类 */
@@ -67,16 +68,18 @@ public class OperationContext implements PlayerOperationContext {
      */
     public void execute() {
         // 玩法操作业务类，将验证与操作分离
-        this.operationHandler.verify(this);
-        this.operationHandler.process(this);
+        if (this.operationHandler.processVerify(this)) {
+            this.operationHandler.verify(this);
+            this.operationHandler.process(this);
+        }
     }
 
     /**
      * 创建 OperationContext 对象
      *
      * @param room             房间
-     * @param operationHandler 玩法操作上下文
-     * @return OperationContext
+     * @param operationHandler 玩法操作业务接口
+     * @return OperationContext 玩法操作上下文
      */
     public static OperationContext of(Room room, OperationHandler operationHandler) {
         return new OperationContext(room, operationHandler);

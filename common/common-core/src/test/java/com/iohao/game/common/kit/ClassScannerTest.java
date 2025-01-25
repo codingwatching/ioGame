@@ -19,9 +19,9 @@
 package com.iohao.game.common.kit;
 
 import com.iohao.game.action.skeleton.annotation.ActionController;
+import com.iohao.game.action.skeleton.toy.IoGameBanner;
 import lombok.extern.slf4j.Slf4j;
 import org.fusesource.jansi.Ansi;
-import org.fusesource.jansi.AnsiConsole;
 import org.junit.Test;
 
 import java.util.List;
@@ -53,14 +53,12 @@ public class ClassScannerTest {
         log.info("hello ioGame {}", "miss");
         String title = "!~ @|CYAN ======================== action ========================= |@ ~!";
 //        AnsiConsole.systemInstall();
-        System.out.println("Hello World");
-        AnsiConsole.out().println("Hello World");
-        AnsiConsole.out().println(title);
+        IoGameBanner.printlnMsg("Hello World");
 
-        System.out.println(Ansi.ansi().eraseScreen().render(title));
+        IoGameBanner.println(Ansi.ansi().eraseScreen().render(title));
 
         Ansi render = Ansi.ansi().eraseScreen().render(title);
-        System.out.println(render.eraseScreen().reset());
+        IoGameBanner.println(render.eraseScreen().reset());
     }
 
 }

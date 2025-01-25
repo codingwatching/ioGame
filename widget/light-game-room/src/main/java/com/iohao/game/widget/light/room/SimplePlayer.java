@@ -34,7 +34,7 @@ import java.io.Serial;
  */
 @Getter
 @Setter
-@FieldDefaults(level = AccessLevel.PRIVATE)
+@FieldDefaults(level = AccessLevel.PROTECTED)
 public class SimplePlayer implements Player {
     @Serial
     private static final long serialVersionUID = -26338708253909097L;

@@ -22,11 +22,13 @@ import com.esotericsoftware.reflectasm.ConstructorAccess;
 import com.esotericsoftware.reflectasm.MethodAccess;
 import com.iohao.game.action.skeleton.core.IoGameCommonCoreConfig;
 import com.iohao.game.action.skeleton.core.commumication.BrokerClientContext;
+import com.iohao.game.action.skeleton.toy.IoGameBanner;
 import com.iohao.game.common.kit.CollKit;
 import com.iohao.game.common.kit.MoreKit;
 import com.iohao.game.common.kit.collect.ListMultiMap;
 import com.iohao.game.common.kit.collect.SetMultiMap;
 import com.iohao.game.common.kit.concurrent.executor.ExecutorRegion;
+import com.iohao.game.common.kit.exception.ThrowKit;
 import com.iohao.game.common.kit.trace.TraceKit;
 import com.iohao.game.common.kit.concurrent.executor.ExecutorRegionKit;
 import com.iohao.game.common.kit.concurrent.executor.ThreadExecutor;
@@ -132,7 +134,7 @@ final class DefaultSubscribeExecutorStrategy implements SubscribeExecutorStrateg
             return userId;
         }
 
-        return threadIndexNo.incrementAndGet();
+        return threadIndexNo.getAndIncrement();
     }
 
     static DefaultSubscribeExecutorStrategy me() {
@@ -403,7 +405,7 @@ final class SubscriberRegistry {
         Class<?> clazz = eventBusSubscriber.getClass();
 
         if (!eventBusSubscriberSet.add(clazz)) {
-            throw new RuntimeException("已经存在 " + clazz);
+            ThrowKit.ofRuntimeException("Already exists : " + clazz);
         }
 
         // 方法访问器: 获取类中自己定义的方法
@@ -424,7 +426,7 @@ final class SubscriberRegistry {
             var executorSelector = annotation.value();
             int order = Math.abs(annotation.order());
 
-            Subscriber subscriber = new Subscriber(subscriberId.incrementAndGet())
+            Subscriber subscriber = new Subscriber(subscriberId.getAndIncrement())
                     .setMethodAccess(methodAccess)
                     .setConstructorAccess(constructorAccess)
                     .setMethodName(methodName)
@@ -526,7 +528,8 @@ final class DefaultEventBus implements EventBus {
     public void register(Object eventBusSubscriber) {
 
         if (status != EventBusStatus.register) {
-            throw new RuntimeException("运行中不允许注册订阅者，请在 EventRunner.registerEventBus 方法中注册。 ");
+            // 运行中不允许注册订阅者，请在 EventRunner.registerEventBus 方法中注册。
+            ThrowKit.ofRuntimeException("Subscriber registration is not allowed during running. Please register in EventRunner.registerEventBus method.");
         }
 
         // 注册
@@ -779,7 +782,7 @@ final class DefaultEventBus implements EventBus {
                 log.info("远程逻辑服 : {}", eventBrokerClientMessage.getAppName());
             }
 
-            System.out.println();
+            IoGameBanner.printLine();
         }
     }
 

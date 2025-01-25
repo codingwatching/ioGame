@@ -42,6 +42,7 @@ public final class BroadcastDocument {
     String methodDescription;
     /** 方法名 */
     String methodName;
+    String cmdMethodName;
 
     /** 业务类型 */
     Class<?> dataClass;
@@ -65,6 +66,7 @@ public final class BroadcastDocument {
     String dataActualTypeName;
 
     String exampleCode;
+    String exampleCodeAction;
 
     public int getCmdMerge() {
         return this.cmdInfo.getCmdMerge();

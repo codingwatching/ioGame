@@ -20,6 +20,8 @@ package com.iohao.game.bolt.broker.server;
 
 import com.alipay.remoting.rpc.RpcConfigs;
 import com.alipay.remoting.rpc.RpcServer;
+import com.iohao.game.action.skeleton.i18n.Bundle;
+import com.iohao.game.action.skeleton.i18n.MessageKey;
 import com.iohao.game.action.skeleton.toy.IoGameBanner;
 import com.iohao.game.bolt.broker.cluster.BrokerClusterManager;
 import com.iohao.game.bolt.broker.cluster.BrokerRunModeEnum;
@@ -36,7 +38,6 @@ import lombok.experimental.Accessors;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -89,7 +90,7 @@ public class BrokerServer implements GroupWith {
     }
 
     public void startup() {
-        IoGameBanner.me();
+        IoGameBanner.me().init();
 
         // #100
         System.setProperty(RpcConfigs.DISPATCH_MSG_LIST_IN_DEFAULT_EXECUTOR, "false");
@@ -100,10 +101,19 @@ public class BrokerServer implements GroupWith {
         // 启动集群
         Optional.ofNullable(this.brokerClusterManager).ifPresent(BrokerClusterManager::start);
 
-        log.info("启动游戏网关 port: [{}] 启动模式: [{}] ", this.port, this.brokerRunMode);
+        extractedLog();
 
         IoGameBanner.render();
         IoGameBanner.me().countDown();
+    }
+
+    private void extractedLog() {
+        String gameBrokerServer = Bundle.getMessage(MessageKey.gameBrokerServer);
+        String gameBrokerServerStartupMode = Bundle.getMessage(MessageKey.gameBrokerServerStartupMode);
+        log.info("{} port:[{}] - {}:[{}] ",
+                gameBrokerServer, this.port,
+                gameBrokerServerStartupMode, this.brokerRunMode
+        );
     }
 
     public void shutdown() {

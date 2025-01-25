@@ -18,20 +18,23 @@
  */
 package com.iohao.game.widget.light.protobuf;
 
+import com.baidu.bjf.remoting.protobuf.EnumReadable;
 import com.baidu.bjf.remoting.protobuf.annotation.Ignore;
 import com.baidu.bjf.remoting.protobuf.annotation.ProtobufClass;
 import com.esotericsoftware.reflectasm.FieldAccess;
+import com.iohao.game.common.consts.CommonConst;
 import com.iohao.game.common.kit.ClassScanner;
+import com.iohao.game.common.kit.MoreKit;
 import com.iohao.game.common.kit.StrKit;
-import com.iohao.game.common.kit.io.FileKit;
 import com.thoughtworks.qdox.JavaProjectBuilder;
 import com.thoughtworks.qdox.model.JavaAnnotation;
 import com.thoughtworks.qdox.model.JavaClass;
 import com.thoughtworks.qdox.model.JavaField;
 import lombok.extern.slf4j.Slf4j;
+import org.jctools.maps.NonBlockingHashMap;
 
+import java.io.File;
 import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
@@ -45,23 +48,42 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 public class ProtoJavaAnalyse {
-
-    final Map<ProtoJavaRegionKey, ProtoJavaRegion> protoJavaRegionMap = new HashMap<>();
-
-    final Map<Class<?>, ProtoJava> protoJavaMap = new HashMap<>();
-
-    final Map<String, JavaClass> protoJavaSourceFileMap = new HashMap<>();
+    static final Map<String, JavaProjectBuilder> javaProjectBuilderMap = new NonBlockingHashMap<>();
+    final Map<ProtoJavaRegionKey, ProtoJavaRegion> protoJavaRegionMap = new NonBlockingHashMap<>();
+    final Map<Class<?>, ProtoJava> protoJavaMap = new NonBlockingHashMap<>();
+    final Map<String, JavaClass> protoJavaSourceFileMap = new NonBlockingHashMap<>();
 
     public Map<ProtoJavaRegionKey, ProtoJavaRegion> analyse(String protoPackagePath, String protoSourcePath) {
         return this.analyse(protoPackagePath, protoSourcePath, this.predicateFilter);
     }
 
     public Map<ProtoJavaRegionKey, ProtoJavaRegion> analyse(String protoPackagePath, String protoSourcePath, Predicate<Class<?>> predicateFilter) {
+        var javaProjectBuilder = getJavaProjectBuilder(protoSourcePath);
+        Collection<JavaClass> javaClassCollection = javaProjectBuilder.getClasses();
 
-        javaProjectBuilder(protoSourcePath);
+        javaClassCollection.parallelStream().filter(javaClass -> {
+
+            List<JavaAnnotation> annotations = javaClass.getAnnotations();
+            if (annotations.size() < 2) {
+                return false;
+            }
+
+            long count = annotations.parallelStream().filter(annotation -> {
+                String string = annotation.getType().toString();
+                return string.contains(ProtobufClass.class.getName())
+                       || string.contains(ProtoFileMerge.class.getName());
+            }).count();
+
+            return count >= 2;
+        }).forEach(javaClass -> {
+            protoJavaSourceFileMap.put(javaClass.toString(), javaClass);
+
+            if (ProtoGenerateSetting.enableLog) {
+                log.info("javaClass: {}", javaClass);
+            }
+        });
 
         ClassScanner classScanner = new ClassScanner(protoPackagePath, predicateFilter);
-
         List<Class<?>> classList = classScanner.listScan();
 
         if (classList.isEmpty()) {
@@ -69,7 +91,6 @@ public class ProtoJavaAnalyse {
         }
 
         List<ProtoJava> protoJavaList = this.convert(classList);
-
         for (ProtoJava protoJava : protoJavaList) {
             this.analyseField(protoJava);
         }
@@ -77,32 +98,16 @@ public class ProtoJavaAnalyse {
         return protoJavaRegionMap;
     }
 
-    private void javaProjectBuilder(String protoSourcePath) {
-        JavaProjectBuilder javaProjectBuilder = new JavaProjectBuilder();
-        javaProjectBuilder.setEncoding(StandardCharsets.UTF_8.name());
-        javaProjectBuilder.addSourceTree(FileKit.file(protoSourcePath));
-
-        Collection<JavaClass> javaClassCollection = javaProjectBuilder.getClasses();
-        for (JavaClass javaClass : javaClassCollection) {
-            List<JavaAnnotation> annotations = javaClass.getAnnotations();
-
-            if (annotations.size() < 2) {
-                continue;
-            }
-
-            long count = annotations.stream().filter(annotation -> {
-                String string = annotation.getType().toString();
-                return string.contains(ProtobufClass.class.getName())
-                        || string.contains(ProtoFileMerge.class.getName());
-            }).count();
-
-            if (count < 2) {
-                continue;
-            }
-
-            protoJavaSourceFileMap.put(javaClass.toString(), javaClass);
-            log.info("javaClass: {}", javaClass);
+    static JavaProjectBuilder getJavaProjectBuilder(String protoSourcePath) {
+        JavaProjectBuilder javaProjectBuilder = javaProjectBuilderMap.get(protoSourcePath);
+        if (javaProjectBuilder == null) {
+            var builder = new JavaProjectBuilder();
+            builder.setEncoding(StandardCharsets.UTF_8.name());
+            builder.addSourceTree(new File(protoSourcePath));
+            return MoreKit.putIfAbsent(javaProjectBuilderMap, protoSourcePath, builder);
         }
+
+        return javaProjectBuilder;
     }
 
     private List<ProtoJava> convert(List<Class<?>> classList) {
@@ -133,48 +138,27 @@ public class ProtoJavaAnalyse {
 
     private void analyseField(ProtoJava protoJava) {
         Class<?> clazz = protoJava.getClazz();
-        Field[] fields;
-
-        if (clazz.isEnum()) {
-            // 如果是枚举类型，需要单独处理，因为FieldAccess.get(clazz)方法中的Modifier.isStatic(modifiers)判断会过滤枚举内的属性
-            Field[] enumFields = clazz.getDeclaredFields();
-            List<Field> fieldList = new ArrayList<>(enumFields.length);
-
-            for (Field enumField : enumFields) {
-                if (Modifier.isPrivate(enumField.getModifiers())) {
-                    // java的Enum有一个隐藏的$VALUES(private)，需要过滤掉---枚举其他属性默认public static
-                    continue;
-                }
-
-                fieldList.add(enumField);
-            }
-
-            fields = new Field[fieldList.size()];
-            for (int i = 0; i < fieldList.size(); i++) {
-                fields[i] = fieldList.get(i);
-            }
-        } else {
-            fields = FieldAccess.get(clazz).getFields();
-        }
+        Field[] fields = clazz.isEnum()
+                ? Arrays.stream(clazz.getDeclaredFields()).filter(field -> field.getType().isEnum()).toArray(Field[]::new)
+                : FieldAccess.get(clazz).getFields();
 
         JavaClass javaClass = protoJava.getJavaClass();
         // 枚举 enum 的下标从 0 开始，message 的下标从 1 开始
         int order = clazz.isEnum() ? 0 : 1;
+        var enumConstants = clazz.isEnum() ? clazz.getEnumConstants() : CommonConst.emptyObjects;
 
-        for (Field field : fields) {
-
+        for (int i = 0; i < fields.length; i++) {
+            var field = fields[i];
             if (Objects.nonNull(field.getAnnotation(Ignore.class))) {
                 continue;
             }
 
             Class<?> fieldTypeClass = field.getType();
-            boolean repeated = List.class.equals(fieldTypeClass);
-
             String fieldName = field.getName();
             JavaField javaField = javaClass.getFieldByName(fieldName);
 
             ProtoJavaField protoJavaField = new ProtoJavaField()
-                    .setRepeated(repeated)
+                    .setRepeated(List.class.equals(fieldTypeClass))
                     .setFieldName(fieldName)
                     .setComment(javaField.getComment())
                     .setOrder(order++)
@@ -182,10 +166,16 @@ public class ProtoJavaAnalyse {
                     .setField(field)
                     .setProtoJavaParent(protoJava);
 
+            // 自定义枚举值
+            if (clazz.isEnum() && EnumReadable.class.isAssignableFrom(clazz)) {
+                if (enumConstants[i] instanceof EnumReadable r) {
+                    protoJavaField.setOrder(r.value());
+                }
+            }
+
             protoJava.addProtoJavaFiled(protoJavaField);
 
             String fieldProtoType = ProtoFieldTypeHolder.me().getProtoType(fieldTypeClass);
-
             if (Objects.nonNull(fieldProtoType)) {
                 protoJavaField.setFieldProtoType(fieldProtoType);
                 continue;
@@ -198,7 +188,6 @@ public class ProtoJavaAnalyse {
             } else {
                 processFieldProtoJava(protoJavaField);
             }
-
         }
     }
 
@@ -242,13 +231,9 @@ public class ProtoJavaAnalyse {
         protoJavaField.setFieldProtoType(fieldProtoType);
     }
 
-
     private void processListFieldProtoJava(ProtoJavaField protoJavaField) {
-        // map 类型
-        Field field = protoJavaField.getField();
-
         // 获取 map 的 <k,v> 类型
-        ParameterizedType genericType = (ParameterizedType) field.getGenericType();
+        ParameterizedType genericType = (ParameterizedType) protoJavaField.getField().getGenericType();
         Type[] actualTypeArguments = genericType.getActualTypeArguments();
 
         Class<?> firstClass = (Class<?>) actualTypeArguments[0];
@@ -262,7 +247,6 @@ public class ProtoJavaAnalyse {
                 .setRepeated(true)
                 .setFieldProtoType(fieldProtoType)
         ;
-
     }
 
     private void processMapFieldProtoJava(ProtoJavaField protoJavaField) {

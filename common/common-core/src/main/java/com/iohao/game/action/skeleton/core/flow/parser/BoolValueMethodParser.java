@@ -62,11 +62,10 @@ final class BoolValueMethodParser implements MethodParser {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Object parseResult(ActionCommand.ActionMethodReturnInfo actionMethodReturnInfo, Object methodResult) {
-
-        if (actionMethodReturnInfo.isList()) {
+    public Object parseData(boolean isList, Object data) {
+        if (isList) {
             var valueList = new BoolValueList();
-            valueList.values = (List<Boolean>) methodResult;
+            valueList.values = (List<Boolean>) data;
             return valueList;
         }
 
@@ -75,9 +74,7 @@ final class BoolValueMethodParser implements MethodParser {
          * 注意这里不会检测 methodResult 是否为 null，如果担心 null 问题，
          * 可以使用 boolean，而不是使用 Boolean
          */
-        BoolValue boolValue = new BoolValue();
-        boolValue.value = (boolean) methodResult;
-        return boolValue;
+        return BoolValue.of((boolean) data);
     }
 
     private BoolValueMethodParser() {

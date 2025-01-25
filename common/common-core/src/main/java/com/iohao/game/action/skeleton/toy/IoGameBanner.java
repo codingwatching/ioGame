@@ -21,8 +21,10 @@ package com.iohao.game.action.skeleton.toy;
 import com.iohao.game.action.skeleton.IoGameVersion;
 import com.iohao.game.common.kit.RandomKit;
 import com.iohao.game.common.kit.concurrent.TaskKit;
+import com.iohao.game.common.kit.exception.ThrowKit;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
@@ -33,6 +35,9 @@ import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static java.lang.System.out;
 
 /**
  * ioGame Banner ， 不提供关闭 Banner 的方法，让开发者含泪看完 Banner
@@ -40,23 +45,33 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @author 渔民小镇
  * @date 2023-01-30
  */
+@Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public final class IoGameBanner {
     /** 特殊字段，开发者不要使用 */
     public static String flag21;
+    public static boolean troublemaker;
+    public static int troubleCounter;
+
     final AtomicBoolean trigger = new AtomicBoolean(false);
+    /** 特殊字段，开发者不要使用 */
+    AtomicInteger errorCount = new AtomicInteger(0);
     Date startTime = new Date();
 
     CountDownLatch countDownLatch = new CountDownLatch(1);
 
     public static void render() {
 
+        if (me().trigger.get()) {
+            return;
+        }
+
         // 只触发一次
         if (!me().trigger.compareAndSet(false, true)) {
             return;
         }
 
-        me().renderBanner();
+        me().renderBanner1();
     }
 
     public void initCountDownLatch(int num) {
@@ -69,15 +84,58 @@ public final class IoGameBanner {
         }
     }
 
-    private void renderBanner() {
+    private void incErrorCount() {
+        if (Objects.nonNull(errorCount)) {
+            errorCount.getAndIncrement();
+        }
+    }
+
+    private final AtomicBoolean print = new AtomicBoolean(false);
+
+    public void ofRuntimeException(String message) {
+        if (!print.get()) {
+            return;
+        }
+
+        incErrorCount();
+        ThrowKit.ofRuntimeException(message);
+        render();
+    }
+
+    public static void printLine() {
+        out.println();
+    }
+
+    public static void printMessage(String message) {
+        out.print(message);
+    }
+
+    public static void printMessage(Object message) {
+        out.print(message);
+    }
+
+    public static void println(Object message) {
+        out.println(message);
+    }
+
+    public static void printlnMsg(String message) {
+        out.println(message);
+    }
+
+    private void renderBanner1() {
+        print.set(true);
 
         Runnable runnable = () -> {
 
             try {
                 if (Objects.nonNull(IoGameBanner.me().countDownLatch)) {
-                    IoGameBanner.me().countDownLatch.await(5, TimeUnit.SECONDS);
+                    boolean r = IoGameBanner.me().countDownLatch.await(5, TimeUnit.SECONDS);
+                    if (!r) {
+                        IoGameBanner.printlnMsg("countDownLatch await is false");
+                    }
                 }
             } catch (InterruptedException e) {
+                log.error(e.getMessage(), e);
             }
 
             var table = new ToyTable();
@@ -104,9 +162,11 @@ public final class IoGameBanner {
             // breaking news
             extractedBreakingNews();
 
+            extractedErrorCount();
+
             clean();
 
-            System.out.println();
+            IoGameBanner.printLine();
         };
 
         TaskKit.execute(runnable);
@@ -116,6 +176,7 @@ public final class IoGameBanner {
         this.startTime = null;
         this.countDownLatch = null;
         flag21 = "ioGame21 ";
+        errorCount = null;
     }
 
     private void extractedTime(ToyTable table) {
@@ -134,37 +195,36 @@ public final class IoGameBanner {
 
     private void extractedBreakingNews() {
         // 每次展示 N 条小报
-        var newsList = BreakingNews.randomNewsList(2);
-        for (BreakingNews.News news : newsList) {
+        var newsList = BreakingNewsKit.randomNewsList();
+        for (News news : newsList) {
             System.out.printf("| News     | %s%n", news);
         }
 
-        System.out.println("+----------+--------------------------------------------------------------------------------------");
+        IoGameBanner.printlnMsg("+----------+--------------------------------------------------------------------------------------");
     }
 
     private void extractedAdv() {
-        String s = BreakingNews.randomAdv().toString();
-        String builder = "| adv      | %s - %s%n";
-        System.out.printf(builder, "启动项广告位招租", s);
-        System.out.println("+----------+--------------------------------------------------------------------------------------");
+        String s = BreakingNewsKit.randomAdv().toString();
+        String builder = "| adv      | %s%n";
+        System.out.printf(builder, s);
+        IoGameBanner.printlnMsg("+----------+--------------------------------------------------------------------------------------");
     }
 
     private void extractedIoGameJavadocApi() {
-        String s = BreakingNews.ioGameJavadocApi().toString();
-        String builder = "| javadoc  | %s%n";
+        String s = BreakingNewsKit.randomMainNews().toString();
+        String builder = "|          | %s%n";
         System.out.printf(builder, s);
-        System.out.println("+----------+--------------------------------------------------------------------------------------");
+        IoGameBanner.printlnMsg("+----------+--------------------------------------------------------------------------------------");
     }
 
-    private void extractedMiss() {
-        String desc = "大家可以来登记，有需要展示或记念的宠物、动漫人物等各种事物";
+    private void extractedErrorCount() {
+        if (Objects.isNull(errorCount) || errorCount.get() == 0) {
+            return;
+        }
 
-        String builder = "| miss     | %s%n";
-        System.out.printf(builder, "女娲:中国神话中的造物主，据说创造了人类和世界。", desc);
-        builder = "|          | (%s)%n";
-        System.out.printf(builder, desc);
-
-        System.out.println("+----------+--------------------------------------------------------------------------------------");
+        String builder = "| Error    | error count : %s%n";
+        System.out.printf(builder, errorCount.get());
+        IoGameBanner.printlnMsg("+----------+--------------------------------------------------------------------------------------");
     }
 
     private void extractedPrint(ToyTable table) {
@@ -176,13 +236,12 @@ public final class IoGameBanner {
         var anyFunction = new BannerColorStrategy().anyColorFun();
         String anyBanner = anyFunction.apply(banner);
 
-        System.out.println();
-        System.out.println(anyBanner);
+        IoGameBanner.printLine();
+        IoGameBanner.printlnMsg(anyBanner);
         table.render();
     }
 
     private static String getPid() {
-        //获取进程的PID
         RuntimeMXBean runtime = ManagementFactory.getRuntimeMXBean();
         String name = runtime.getName();
 
@@ -204,5 +263,9 @@ public final class IoGameBanner {
     /** 通过 JVM 的类加载机制, 保证只加载一次 (singleton) */
     private static class Holder {
         static final IoGameBanner ME = new IoGameBanner();
+    }
+
+    public void init() {
+
     }
 }

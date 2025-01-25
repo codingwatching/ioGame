@@ -19,15 +19,13 @@
 package com.iohao.game.common.kit;
 
 import com.iohao.game.common.consts.IoGameLogName;
+import com.iohao.game.common.kit.exception.ThrowKit;
 import lombok.extern.slf4j.Slf4j;
 import org.jctools.maps.NonBlockingHashSet;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.JarURLConnection;
-import java.net.URL;
-import java.net.URLConnection;
-import java.net.URLDecoder;
+import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Predicate;
@@ -84,7 +82,7 @@ public class ClassScanner {
             }
 
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            ThrowKit.ofRuntimeException(e);
         }
 
         return new ArrayList<>(clazzSet);
@@ -102,14 +100,27 @@ public class ClassScanner {
     public List<URL> listResource() throws IOException {
         this.initClassLoad();
 
+        List<URL> list = new ArrayList<>();
+        Set<URI> uriSet = new HashSet<>();
+
         Enumeration<URL> urlEnumeration = classLoader.getResources(packagePath);
-        Set<URL> set = new HashSet<>();
         while (urlEnumeration.hasMoreElements()) {
             URL url = urlEnumeration.nextElement();
-            set.add(url);
+
+            try {
+                URI uri = url.toURI();
+                if (uriSet.contains(uri)) {
+                    continue;
+                }
+
+                uriSet.add(uri);
+                list.add(url);
+            } catch (URISyntaxException e) {
+                log.error(e.getMessage(), e);
+            }
         }
 
-        return new ArrayList<>(set);
+        return list;
     }
 
     private void scanJar(URL url) throws IOException {

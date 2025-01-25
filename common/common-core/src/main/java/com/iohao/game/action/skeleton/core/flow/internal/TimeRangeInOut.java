@@ -20,10 +20,12 @@ package com.iohao.game.action.skeleton.core.flow.internal;
 
 import com.iohao.game.action.skeleton.core.flow.ActionMethodInOut;
 import com.iohao.game.action.skeleton.core.flow.FlowContext;
+import com.iohao.game.action.skeleton.i18n.Bundle;
+import com.iohao.game.action.skeleton.i18n.MessageKey;
 import com.iohao.game.common.kit.CollKit;
-import com.iohao.game.common.kit.TimeFormatterKit;
-import com.iohao.game.common.kit.concurrent.IntervalTaskListener;
 import com.iohao.game.common.kit.concurrent.TaskKit;
+import com.iohao.game.common.kit.time.CacheTimeKit;
+import com.iohao.game.common.kit.time.FormatTimeKit;
 import lombok.Getter;
 import org.jctools.maps.NonBlockingHashMap;
 
@@ -36,10 +38,8 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /**
- * 每日各时间段调用统计插件
- * <pre>
- *     <a href="https://www.yuque.com/iohao/game/umzk2d6lovo4n9gz">文档</a>
- * </pre>
+ * 业务框架插件 - <a href="https://www.yuque.com/iohao/game/umzk2d6lovo4n9gz">各时间段调用统计插件</a>
+ *
  * <pre>{@code
  *     BarSkeletonBuilder builder = ...;
  *     // 各时间段 action 调用统计插件，将插件添加到业务框架中
@@ -101,8 +101,8 @@ import java.util.stream.Stream;
 public final class TimeRangeInOut implements ActionMethodInOut {
 
     final TimeRangeDayRegion region = new TimeRangeDayRegion();
-
-    ChangeListener listener = new DefaultChangeListener();
+    ChangeListener listener = new ChangeListener() {
+    };
 
     /**
      * 设置监听器
@@ -110,11 +110,6 @@ public final class TimeRangeInOut implements ActionMethodInOut {
      * @param listener 监听器
      */
     public void setListener(ChangeListener listener) {
-
-        if (this.listener instanceof DefaultChangeListener that) {
-            that.active = false;
-        }
-
         this.listener = Objects.requireNonNull(listener);
     }
 
@@ -131,7 +126,7 @@ public final class TimeRangeInOut implements ActionMethodInOut {
     }
 
     /**
-     * 调用统计对象域
+     * 各时间段调用统计插件 - 调用统计对象域
      */
     @Getter
     public final class TimeRangeDayRegion {
@@ -181,7 +176,7 @@ public final class TimeRangeInOut implements ActionMethodInOut {
     }
 
     /**
-     * 一天的调用统计对象
+     * 各时间段调用统计插件 - 一天的调用统计对象
      *
      * @param localDate      日期
      * @param count          一天的 action 调用总次数
@@ -221,22 +216,25 @@ public final class TimeRangeInOut implements ActionMethodInOut {
             }
         }
 
+        /** action 调用次数 共 [%d] 次 */
+        private static final String dayTitle = Bundle.getMessage(MessageKey.timeRangeInOutDayTitle);
+
         @Override
         public String toString() {
 
-            String localDateFormat = TimeFormatterKit.ofPattern("yyyy-MM-dd").format(this.localDate);
+            String localDateFormat = FormatTimeKit.ofPattern("yyyy-MM-dd").format(this.localDate);
 
             List<TimeRangeHour> timeRangeHoursList = stream()
                     .filter(timeRangeHour -> timeRangeHour.count.sum() > 0)
                     .toList();
 
             if (CollKit.isEmpty(timeRangeHoursList)) {
-                // TimeRange
-                return localDateFormat + " action 调用次数暂无数据";
+                // TimeRange，action 暂无数据
+                return localDateFormat + " action no data";
             }
 
-            StringBuilder builder = new StringBuilder();
-            builder.append(localDateFormat).append(" action 调用次数 共 [").append(this.count).append("] 次");
+            StringBuilder builder = new StringBuilder(localDateFormat);
+            builder.append(" ").append(dayTitle.formatted(this.count.sum()));
 
             for (TimeRangeHour timeRangeHour : timeRangeHoursList) {
                 builder.append("\n\t").append(timeRangeHour);
@@ -247,7 +245,7 @@ public final class TimeRangeInOut implements ActionMethodInOut {
     }
 
     /**
-     * 一小时的调用统计对象
+     * 各时间段调用统计插件 - 一小时的调用统计对象
      *
      * @param hourTime   小时
      * @param count      一小时的 action 调用次数
@@ -279,12 +277,12 @@ public final class TimeRangeInOut implements ActionMethodInOut {
             return this.hourTime.getHour();
         }
 
+        /** %d:00 共 %s 次; */
+        private static final String hourTitle = Bundle.getMessage(MessageKey.timeRangeInOutHourTitle);
+
         @Override
         public String toString() {
-
-            String hourStr = String.format("%d:00 共 %s 次;"
-                    , this.getHour()
-                    , this.count);
+            String hourStr = hourTitle.formatted(this.getHour(), this.count.sum());
 
             if (CollKit.isEmpty(this.minuteList)) {
                 return hourStr;
@@ -302,7 +300,7 @@ public final class TimeRangeInOut implements ActionMethodInOut {
     }
 
     /**
-     * 分钟范围记录
+     * 各时间段调用统计插件 - 分钟范围记录
      *
      * @param start 开始时间（分钟），包含该时间
      * @param end   结束时间（分钟），包含该时间
@@ -328,14 +326,17 @@ public final class TimeRangeInOut implements ActionMethodInOut {
             this.count.increment();
         }
 
+        /** [%d~%d分钟，%d 次] */
+        private static final String minuteTitle = Bundle.getMessage(MessageKey.timeRangeInOutMinuteTitle);
+
         @Override
         public String toString() {
-            return String.format("[%d~%d分钟 %s 次]", this.start, this.end, this.count);
+            return minuteTitle.formatted(this.start, this.end, this.count.sum());
         }
     }
 
     /**
-     * 监听器
+     * 各时间段调用统计插件 - 监听器
      */
     public interface ChangeListener {
 
@@ -356,7 +357,7 @@ public final class TimeRangeInOut implements ActionMethodInOut {
          * @return LocalDate
          */
         default LocalDate nowLocalDate() {
-            return LocalDate.now();
+            return CacheTimeKit.nowLocalDate();
         }
 
         /**
@@ -365,7 +366,7 @@ public final class TimeRangeInOut implements ActionMethodInOut {
          * @return LocalTime
          */
         default LocalTime nowLocalTime() {
-            return LocalTime.now();
+            return CacheTimeKit.nowLocalTime();
         }
 
         /**
@@ -409,38 +410,6 @@ public final class TimeRangeInOut implements ActionMethodInOut {
          */
         default List<TimeRangeMinute> createListenerTimeRangeMinuteList() {
             return Collections.emptyList();
-        }
-    }
-
-    private static class DefaultChangeListener implements ChangeListener {
-        LocalDate nowLocalDate = LocalDate.now();
-        LocalTime nowLocalTime = LocalTime.now();
-        volatile boolean active = true;
-
-        DefaultChangeListener() {
-            TaskKit.runIntervalMinute(new IntervalTaskListener() {
-                @Override
-                public void onUpdate() {
-                    // 1 minute update
-                    nowLocalDate = LocalDate.now();
-                    nowLocalTime = LocalTime.now();
-                }
-
-                @Override
-                public boolean isActive() {
-                    return active;
-                }
-            }, 1);
-        }
-
-        @Override
-        public LocalDate nowLocalDate() {
-            return this.nowLocalDate;
-        }
-
-        @Override
-        public LocalTime nowLocalTime() {
-            return this.nowLocalTime;
         }
     }
 }

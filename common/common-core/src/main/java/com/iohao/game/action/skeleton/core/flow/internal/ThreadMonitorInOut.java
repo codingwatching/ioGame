@@ -21,6 +21,8 @@ package com.iohao.game.action.skeleton.core.flow.internal;
 import com.iohao.game.action.skeleton.core.flow.ActionMethodInOut;
 import com.iohao.game.action.skeleton.core.flow.FlowContext;
 import com.iohao.game.action.skeleton.core.flow.attr.FlowAttr;
+import com.iohao.game.action.skeleton.i18n.Bundle;
+import com.iohao.game.action.skeleton.i18n.MessageKey;
 import com.iohao.game.common.kit.MoreKit;
 import com.iohao.game.common.kit.concurrent.executor.ThreadExecutor;
 import lombok.Getter;
@@ -35,7 +37,27 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
- * 业务线程监控插件
+ * 业务框架插件 - <a href="https://www.yuque.com/iohao/game/zoqabk4gez3bckis">业务线程监控插件</a>
+ * <p>
+ * for example
+ * <pre>{@code
+ * BarSkeletonBuilder builder = ...;
+ * // 业务线程监控插件，将插件添加到业务框架中
+ * var threadMonitorInOut = new ThreadMonitorInOut();
+ * builder.addInOut(threadMonitorInOut);
+ * }</pre>
+ * <p>
+ * 打印预览
+ * <pre>
+ *     业务线程[RequestMessage-8-1] 共执行了 1 次业务，平均耗时 1 ms, 剩余 91 个任务未执行
+ *     业务线程[RequestMessage-8-2] 共执行了 1 次业务，平均耗时 1 ms, 剩余 0 个任务未执行
+ *     业务线程[RequestMessage-8-3] 共执行了 1 次业务，平均耗时 1 ms, 剩余 36 个任务未执行
+ *     业务线程[RequestMessage-8-4] 共执行了 1 次业务，平均耗时 1 ms, 剩余 0 个任务未执行
+ *     业务线程[RequestMessage-8-5] 共执行了 1 次业务，平均耗时 1 ms, 剩余 88 个任务未执行
+ *     业务线程[RequestMessage-8-6] 共执行了 1 次业务，平均耗时 1 ms, 剩余 0 个任务未执行
+ *     业务线程[RequestMessage-8-7] 共执行了 7 次业务，平均耗时 1 ms, 剩余 56 个任务未执行
+ *     业务线程[RequestMessage-8-8] 共执行了 1 次业务，平均耗时 1 ms, 剩余 0 个任务未执行
+ * </pre>
  *
  * @author 渔民小镇
  * @date 2023-11-22
@@ -57,6 +79,9 @@ public final class ThreadMonitorInOut implements ActionMethodInOut {
         }
     }
 
+    /**
+     * 业务线程监控插件 - 线程监控相关信息
+     */
     @Getter
     public static class ThreadMonitorRegion {
         final Map<String, ThreadMonitor> map = new NonBlockingHashMap<>();
@@ -138,11 +163,14 @@ public final class ThreadMonitorInOut implements ActionMethodInOut {
                     .orElse(0);
         }
 
+        /** 业务线程[%s] 共执行了 %s 次业务，平均耗时 %d ms, 剩余 %d 个任务未执行 */
+        private static final String threadMonitorInOutThreadMonitor = Bundle.getMessage(MessageKey.threadMonitorInOutThreadMonitor);
+
         @Override
         public String toString() {
-            return String.format("业务线程[%s] 共执行了 %s 次业务，平均耗时 %d ms, 剩余 %d 个任务未执行"
+            return String.format(threadMonitorInOutThreadMonitor
                     , this.name
-                    , this.executeCount
+                    , this.executeCount.sum()
                     , this.getAvgTime()
                     , this.countRemaining()
             );

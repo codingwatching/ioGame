@@ -31,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 public class DefaultDomainEventExceptionHandler implements ExceptionHandler<Object> {
     @Override
     public void handleEventException(Throwable ex, long sequence, Object event) {
-        log.error("{} - {}", ex, event);
+        log.error(ex.getMessage(), ex);
     }
 
     @Override

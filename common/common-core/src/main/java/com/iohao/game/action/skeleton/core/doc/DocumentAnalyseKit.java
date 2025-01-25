@@ -18,6 +18,7 @@
  */
 package com.iohao.game.action.skeleton.core.doc;
 
+import com.iohao.game.action.skeleton.core.exception.ActionErrorEnum;
 import com.iohao.game.action.skeleton.core.exception.MsgExceptionInfo;
 import com.iohao.game.common.kit.CollKit;
 import com.thoughtworks.qdox.JavaProjectBuilder;
@@ -28,8 +29,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.net.URL;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 /**
@@ -46,29 +47,70 @@ class DocumentAnalyseKit {
             ActionDocument actionDocument = new ActionDocument(actionDoc, typeMappingDocument);
             actionDocument.analyse();
             return actionDocument;
+        }).filter(actionDocument -> {
+            // action 方法列表不为空
+            List<ActionMethodDocument> actionMethodDocumentList = actionDocument.getActionMethodDocumentList();
+            return !actionMethodDocumentList.isEmpty();
         }).toList();
     }
 
     List<ErrorCodeDocument> analyseErrorCodeDocument(Class<? extends MsgExceptionInfo> clazz) {
-        JavaClass javaClass = analyseJavaClass(clazz);
-        return analyseErrorCodeDocument(javaClass);
+
+        var analyseJavaClassRecord = analyseJavaClass(clazz);
+        if (!analyseJavaClassRecord.exists) {
+            // 框架内置错误码的特殊处理。因为编译后已经没有源码了，所以无法获取框架的 ActionErrorEnum 相关源码。
+            return analyseActionErrorEnumDocument(clazz);
+        }
+
+        return analyseErrorCodeDocument(analyseJavaClassRecord.javaClass());
     }
 
-    JavaClass analyseJavaClass(Class<?> clazz) {
-        JavaProjectBuilder javaProjectBuilder = new JavaProjectBuilder();
+    private List<ErrorCodeDocument> analyseActionErrorEnumDocument(Class<? extends MsgExceptionInfo> clazz) {
+
+        if (!ActionErrorEnum.class.equals(clazz)) {
+            return Collections.emptyList();
+        }
+
+        return Arrays.stream(ActionErrorEnum.values()).map(code -> {
+            ErrorCodeDocument errorCodeDocument = new ErrorCodeDocument();
+            errorCodeDocument.setName(code.name());
+            errorCodeDocument.setValue(code.getCode());
+            errorCodeDocument.setDescription(code.getMsg());
+
+            // i18n
+            if (Locale.getDefault() == Locale.US) {
+                errorCodeDocument.setDescription(code.name());
+            }
+
+            return errorCodeDocument;
+        }).toList();
+    }
+
+    AnalyseJavaClassRecord analyseJavaClass(Class<?> clazz) {
 
         URL resource = clazz.getResource(clazz.getSimpleName() + ".class");
         String srcPath = sourceFilePathFun.apply(resource).replace("class", "java");
 
+        JavaProjectBuilder javaProjectBuilder = new JavaProjectBuilder();
+
         File file = new File(srcPath);
         // 源码在此包才做处理
-        if (file.exists()) {
+        boolean exists = file.exists();
+        if (exists) {
             javaProjectBuilder.addSourceTree(file);
-        } else {
+        }
+
+        if (!exists && !ActionErrorEnum.class.equals(clazz)) {
             log.warn("无法获取 {} 相关源码", clazz);
         }
 
-        return javaProjectBuilder.getClassByName(clazz.getName());
+        JavaClass javaClass = javaProjectBuilder.getClassByName(clazz.getName());
+
+        return new AnalyseJavaClassRecord(exists, javaClass);
+    }
+
+    record AnalyseJavaClassRecord(boolean exists, JavaClass javaClass) {
+
     }
 
     private final Function<URL, String> sourceFilePathFun = resourceUrl -> {
@@ -81,19 +123,28 @@ class DocumentAnalyseKit {
                 : path.replace("build/classes", "src/main/java");
     };
 
+    private final AtomicInteger gameCodeOrdinal = new AtomicInteger(0);
+
     private List<ErrorCodeDocument> analyseErrorCodeDocument(JavaClass javaClass) {
         return javaClass.getFields().stream().map(field -> {
-            String name = field.getName();
             List<Expression> enumConstantArguments = field.getEnumConstantArguments();
-            if (CollKit.isEmpty(enumConstantArguments) || enumConstantArguments.size() != 2) {
+            if (CollKit.isEmpty(enumConstantArguments)) {
                 return null;
             }
 
+            int gameCode = 0;
+            if (enumConstantArguments.size() == 1) {
+                gameCode = gameCodeOrdinal.getAndIncrement();
+            } else if (enumConstantArguments.size() == 2) {
+                Object enumValue = enumConstantArguments.getFirst().getParameterValue();
+                gameCode = Integer.parseInt(enumValue.toString());
+            }
+
+            String name = field.getName();
+
             ErrorCodeDocument errorCodeDocument = new ErrorCodeDocument();
             errorCodeDocument.setName(name);
-
-            Object enumValue = enumConstantArguments.getFirst().getParameterValue();
-            errorCodeDocument.setValue(Integer.parseInt(enumValue.toString()));
+            errorCodeDocument.setValue(gameCode);
 
             String description = enumConstantArguments.getLast().getParameterValue().toString();
             description = description.substring(1, description.length() - 1);

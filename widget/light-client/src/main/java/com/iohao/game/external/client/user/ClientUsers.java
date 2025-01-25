@@ -49,7 +49,7 @@ public class ClientUsers {
                 // 小等一会
                 TimeUnit.MILLISECONDS.sleep(100);
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                log.error(e.getMessage(), e);
             }
 
             while (true) {
@@ -62,7 +62,7 @@ public class ClientUsers {
                 try {
                     TimeUnit.SECONDS.sleep(1);
                 } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
+                    log.error(e.getMessage(), e);
                 }
             }
 
@@ -70,7 +70,11 @@ public class ClientUsers {
         });
     }
 
+    boolean executeStart;
+
     private void extractedExecute() {
+        executeStart = true;
+
         TaskKit.execute(() -> {
             if (clientUsers.size() > 1) {
                 int sleep = 5;
@@ -79,16 +83,16 @@ public class ClientUsers {
                 try {
                     TimeUnit.SECONDS.sleep(sleep);
                 } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
+                    log.error(e.getMessage(), e);
                 }
             }
 
-            while (true) {
+            while (executeStart) {
                 try {
                     Runnable take = runnableQueue.take();
                     TaskKit.execute(take);
                 } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
+                    log.error(e.getMessage(), e);
                 }
             }
         });

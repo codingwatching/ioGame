@@ -18,6 +18,7 @@
  */
 package com.iohao.game.external.client.kit;
 
+import com.iohao.game.common.kit.exception.ThrowKit;
 import lombok.experimental.UtilityClass;
 
 import java.util.Scanner;
@@ -70,7 +71,8 @@ public class ScannerKit {
      */
     public String nextLine() {
         if (ClientUserConfigs.closeScanner) {
-            throw new RuntimeException("不支持控制台输入");
+            // 不支持控制台输入
+            ThrowKit.ofRuntimeException("No support for console input");
         }
 
         return scanner.nextLine();
@@ -100,7 +102,8 @@ public class ScannerKit {
      */
     public long nextLong() {
         if (ClientUserConfigs.closeScanner) {
-            throw new RuntimeException("不支持控制台输入");
+            // 不支持控制台输入
+            ThrowKit.ofRuntimeException("No support for console input");
         }
 
         String s = ScannerKit.scanner.nextLine();
@@ -131,11 +134,11 @@ public class ScannerKit {
      */
     public int nextInt() {
         if (ClientUserConfigs.closeScanner) {
-            throw new RuntimeException("不支持控制台输入");
+            // 不支持控制台输入
+            ThrowKit.ofRuntimeException("No support for console input");
         }
 
         String s = ScannerKit.scanner.nextLine();
         return Integer.parseInt(s);
     }
-
 }
