@@ -18,14 +18,13 @@
  */
 package com.iohao.game.common.kit;
 
+import com.iohao.game.common.kit.time.ConfigTimeKit;
+import com.iohao.game.common.kit.time.FormatTimeKit;
 import lombok.experimental.UtilityClass;
-import org.jctools.maps.NonBlockingHashMap;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Map;
-import java.util.Objects;
 
 /**
  * 时间格式化相关工具
@@ -33,24 +32,24 @@ import java.util.Objects;
  * @author 渔民小镇
  * @date 2024-07-06
  * @since 21.11
+ * @deprecated 请使用 {@link com.iohao.game.common.kit.time.FormatTimeKit}
  */
+@Deprecated
 @UtilityClass
 public class TimeFormatterKit {
-    final Map<String, DateTimeFormatter> map = new NonBlockingHashMap<>();
+    /**
+     * @deprecated 请使用 {@link ConfigTimeKit#getDefaultZoneId()}
+     */
+    public ZoneId defaultZoneId = ConfigTimeKit.getDefaultZoneId();
+    @Deprecated
+    public DateTimeFormatter defaultFormatter = FormatTimeKit.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    public ZoneId defaultZoneId = ZoneId.systemDefault();
-    public DateTimeFormatter defaultFormatter = ofPattern("yyyy-MM-dd HH:mm:ss");
-
+    @Deprecated
     public DateTimeFormatter ofPattern(String pattern) {
-        DateTimeFormatter dateTimeFormatter = map.get(pattern);
-
-        if (Objects.isNull(dateTimeFormatter)) {
-            return MoreKit.putIfAbsent(map, pattern, DateTimeFormatter.ofPattern(pattern));
-        }
-
-        return dateTimeFormatter;
+        return FormatTimeKit.ofPattern(pattern);
     }
 
+    @Deprecated
     public String formatter() {
         return defaultFormatter.format(LocalDateTime.now());
     }

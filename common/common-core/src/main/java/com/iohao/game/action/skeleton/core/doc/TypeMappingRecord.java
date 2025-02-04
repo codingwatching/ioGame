@@ -38,7 +38,6 @@ public final class TypeMappingRecord {
     String paramTypeName;
     /** list 参数类型名 */
     String listParamTypeName;
-
     /** sdk 方法名 */
     String ofMethodTypeName;
     /** sdk list 参数的方法名 */

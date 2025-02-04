@@ -20,9 +20,12 @@ package com.iohao.game.common.kit.concurrent;
 
 import com.iohao.game.common.kit.CollKit;
 import com.iohao.game.common.kit.ExecutorKit;
+import com.iohao.game.common.kit.MoreKit;
+import com.iohao.game.common.kit.RuntimeKit;
 import com.iohao.game.common.kit.collect.SetMultiMap;
 import io.netty.util.HashedWheelTimer;
 import io.netty.util.Timeout;
+import io.netty.util.Timer;
 import io.netty.util.TimerTask;
 import lombok.Getter;
 import lombok.experimental.UtilityClass;
@@ -141,16 +144,34 @@ import java.util.function.Supplier;
 @UtilityClass
 public class TaskKit {
     /** 执行一些没有 io 操作的逻辑 */
-    private final HashedWheelTimer wheelTimer = new HashedWheelTimer();
+    private Timer wheelTimer = new HashedWheelTimer();
     /** 内置的 cacheExecutor 执行器 */
     @Getter
-    final ExecutorService cacheExecutor = ExecutorKit.newCacheThreadPool("ioGameThread-");
+    final ExecutorService cacheExecutor = ExecutorKit.newFixedThreadPool(RuntimeKit.availableProcessors2n, "ioGameThread-");
     /** 虚拟线程执行器 */
     @Getter
-    final ExecutorService virtualExecutor = ExecutorKit.newVirtualExecutor("ioGameVirtual-");
+    final ExecutorService virtualExecutor = ExecutorKit.newVirtualExecutor("ioGameVirtual");
     final SetMultiMap<TickTimeUnit, IntervalTaskListener> intervalTaskListenerMap = SetMultiMap.of();
 
     record TickTimeUnit(long tick, TimeUnit timeUnit) {
+    }
+
+    /**
+     * set HashedWheelTimer
+     * <pre>{@code
+     * TaskKit.setTimer(new HashedWheelTimer(17, TimeUnit.MILLISECONDS));
+     * }
+     * </pre>
+     *
+     * @param timer Timer
+     * @since 21.23
+     */
+    public void setTimer(Timer timer) {
+        Objects.requireNonNull(timer);
+
+        var oldTimer = wheelTimer;
+        wheelTimer = timer;
+        oldTimer.stop();
     }
 
     /**
@@ -275,13 +296,8 @@ public class TaskKit {
 
                 set.forEach(intervalTaskListener -> {
                     var executor = intervalTaskListener.getExecutor();
-
                     // 如果指定了执行器，就将执行流程放到执行器中，否则使用当前线程
-                    if (Objects.nonNull(executor)) {
-                        executor.execute(() -> executeFlowTimerListener(intervalTaskListener, set));
-                    } else {
-                        executeFlowTimerListener(intervalTaskListener, set);
-                    }
+                    MoreKit.execute(executor, () -> executeFlowTimerListener(intervalTaskListener, set));
                 });
 
                 TaskKit.newTimeout(this, tick, timeUnit);

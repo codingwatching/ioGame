@@ -1,6 +1,8 @@
 package com.iohao.game.action.skeleton.eventbus;
 
+import com.iohao.game.action.skeleton.toy.IoGameBanner;
 import com.iohao.game.common.kit.concurrent.executor.ExecutorRegionKit;
+import com.iohao.game.common.kit.exception.ThrowKit;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -54,7 +56,7 @@ public class EventBusTest {
         try {
             TimeUnit.MILLISECONDS.sleep(1);
         } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            ThrowKit.ofRuntimeException(e);
         }
     }
 
@@ -74,7 +76,7 @@ public class EventBusTest {
         this.eventBus.fireAnySync(message);
         Assert.assertEquals(3, CustomEvent.myMessageLong.sum());
 
-        System.out.println();
+        IoGameBanner.printLine();
         this.eventBus.fireAny(message);
 
         sleep();
@@ -91,7 +93,7 @@ public class EventBusTest {
 
         this.eventBus.fire(eventBusMessage);
 //        this.eventBus.fire(message);
-        System.out.println();
+        IoGameBanner.printLine();
 //        this.eventBus.fire(message);
 
     }
@@ -147,7 +149,7 @@ public class EventBusTest {
         try {
             TimeUnit.MILLISECONDS.sleep(50);
         } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            log.error(e.getMessage(), e);
         }
     }
 }

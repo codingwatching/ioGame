@@ -18,7 +18,7 @@
  */
 package com.iohao.game.common.kit.concurrent.executor;
 
-import com.iohao.game.common.kit.concurrent.ThreadCreator;
+import com.iohao.game.common.kit.concurrent.FixedNameThreadFactory;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 
@@ -37,49 +37,27 @@ abstract sealed class AbstractThreadExecutorRegion implements ThreadExecutorRegi
         UserVirtualThreadExecutorRegion,
         SimpleThreadExecutorRegion {
 
-    final int executorLength;
     /** 线程执行器 */
     final ThreadExecutor[] threadExecutors;
 
     AbstractThreadExecutorRegion(String threadName, int executorSize) {
-        this.executorLength = executorSize;
         this.threadExecutors = new ThreadExecutor[executorSize];
 
         for (int i = 0; i < executorSize; i++) {
-            // 线程名：RequestMessage-线程总数-当前线程编号
+            // 线程名：name-线程总数-当前线程编号
             int threadNo = i + 1;
             String threadNamePrefix = String.format("%s-%s-%s", threadName, executorSize, threadNo);
-
             var executor = this.createExecutorService(threadNamePrefix);
-
             this.threadExecutors[i] = new ThreadExecutor(threadNamePrefix, executor, threadNo);
         }
     }
 
     protected ExecutorService createExecutorService(String name) {
-        InternalThreadFactory threadFactory = new InternalThreadFactory(name);
+        ThreadFactory threadFactory = new FixedNameThreadFactory(name);
 
         return new ThreadPoolExecutor(1, 1,
                 0L, TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
                 threadFactory);
-    }
-
-    private static class InternalThreadFactory extends ThreadCreator implements ThreadFactory {
-
-        public InternalThreadFactory(String threadNamePrefix) {
-            super(threadNamePrefix);
-            this.setDaemon(true);
-        }
-
-        @Override
-        public Thread newThread(Runnable runnable) {
-            return createThread(runnable);
-        }
-
-        @Override
-        protected String nextThreadName() {
-            return this.getThreadNamePrefix();
-        }
     }
 }

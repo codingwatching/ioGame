@@ -23,6 +23,8 @@ import com.iohao.game.action.skeleton.core.exception.MsgExceptionInfo;
 import com.iohao.game.common.kit.MoreKit;
 import com.iohao.game.common.kit.StrKit;
 import com.thoughtworks.qdox.model.JavaClass;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.experimental.UtilityClass;
 import org.jctools.maps.NonBlockingHashMap;
 import org.jctools.maps.NonBlockingHashSet;
@@ -31,7 +33,7 @@ import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * 对接文档生成器辅助
+ * 对接文档生成器辅助，<a href="https://www.yuque.com/iohao/game/irth38">游戏对接文档生成</a>
  * <p>
  * for example
  * <pre>{@code
@@ -56,15 +58,19 @@ public class IoGameDocumentHelper {
      *      value : action 文档
      *  </pre>
      */
-    private Map<Class<?>, ActionDoc> actionDocMap = new NonBlockingHashMap<>();
+    private final Map<Class<?>, ActionDoc> actionDocMap = new NonBlockingHashMap<>();
     /** 错误码枚举类信息，用于生成错误码相关信息 */
-    private Set<Class<? extends MsgExceptionInfo>> errorCodeClassSet = new NonBlockingHashSet<>();
-    private Map<Class<? extends DocumentGenerate>, DocumentGenerate> documentGenerateMap = new HashMap<>();
-    private List<BroadcastDocument> broadcastDocumentList = new CopyOnWriteArrayList<>();
+    private final Set<Class<? extends MsgExceptionInfo>> errorCodeClassSet = new NonBlockingHashSet<>();
+    private final Set<DocumentGenerate> documentGenerateSet = new NonBlockingHashSet<>();
+    private final List<BroadcastDocument> broadcastDocumentList = new CopyOnWriteArrayList<>();
 
     /** true 生成文档 */
     private boolean generateDoc = true;
     private boolean once = true;
+    /** 文档路由访问权限控制 */
+    @Getter
+    @Setter
+    private DocumentAccessAuthentication documentAccessAuthentication = cmdMerge -> false;
 
     /**
      * 只有当 generateDoc 为 true 时，才会执行 set 操作
@@ -93,19 +99,7 @@ public class IoGameDocumentHelper {
         IoGameDocument ioGameDocument = analyse();
 
         // 文档生成
-        IoGameDocumentHelper.documentGenerateMap
-                .values()
-                .forEach(documentGenerate -> documentGenerate.generate(ioGameDocument));
-
-        clear();
-    }
-
-    private void clear() {
-        // 生成文档后，移除静态数据
-        actionDocMap = null;
-        errorCodeClassSet = null;
-        documentGenerateMap = null;
-        broadcastDocumentList = null;
+        documentGenerateSet.forEach(documentGenerate -> documentGenerate.generate(ioGameDocument));
     }
 
     private IoGameDocument analyse() {
@@ -134,7 +128,7 @@ public class IoGameDocumentHelper {
                 .forEach(broadcastDocument -> {
                     // 广播业务数据解析，使用类信息的文档注释
                     Class<?> dataClass = broadcastDocument.getDataClass();
-                    JavaClass javaClass = DocumentAnalyseKit.analyseJavaClass(dataClass);
+                    JavaClass javaClass = DocumentAnalyseKit.analyseJavaClass(dataClass).javaClass();
                     String classComment = javaClass.getComment();
 
                     broadcastDocument.setDataDescription(classComment);
@@ -160,8 +154,7 @@ public class IoGameDocumentHelper {
      * @param documentGenerate 文档生成接口
      */
     public void addDocumentGenerate(DocumentGenerate documentGenerate) {
-        var key = documentGenerate.getClass();
-        IoGameDocumentHelper.documentGenerateMap.putIfAbsent(key, documentGenerate);
+        documentGenerateSet.add(documentGenerate);
     }
 
     /**
@@ -183,6 +176,15 @@ public class IoGameDocumentHelper {
      */
     public void addBroadcastDocument(BroadcastDocument broadcastDocument) {
         IoGameDocumentHelper.broadcastDocumentList.add(broadcastDocument);
+    }
+
+    /**
+     * 添加广播文档
+     *
+     * @param broadcastDocumentBuilder broadcastDocumentBuilder
+     */
+    public void addBroadcastDocument(BroadcastDocumentBuilder broadcastDocumentBuilder) {
+        addBroadcastDocument(broadcastDocumentBuilder.build());
     }
 
     /**

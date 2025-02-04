@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 /**
- * 动态属性
+ * 工具相关 - <a href="https://www.yuque.com/iohao/game/uqn84q41f58xe5f0">动态属性</a>
  *
  * @author 渔民小镇
  * @date 2022-01-02

@@ -17,12 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 /**
- * 请求对外服，这里对游戏对外服做处理时，统一使用请求多个对外服，不提供只请求其中一个的情况。
- * <pre>
- *     实际上这里是可以复用 RequestCollectMessage 系列的，
- *     因为对外服也可以使用业务框架，但不想搞得太混合。
- *     就分开做额外处理了。
- * </pre>
+ * 业务框架 - 内部协议 - <a href="https://www.yuque.com/iohao/game/ivxsw5">获取游戏对外服的数据与扩展</a>
  *
  * @author 渔民小镇
  * @date 2022-07-27

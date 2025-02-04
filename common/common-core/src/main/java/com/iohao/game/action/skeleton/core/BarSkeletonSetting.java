@@ -57,11 +57,13 @@ public final class BarSkeletonSetting {
     boolean printDataCodec = true;
 
     /** true runners 日志打印 */
-    boolean printRunners = true;
+    boolean printRunners = false;
 
     /** inOut 的 in 。 true 开启 */
+    @Deprecated
     boolean openIn = true;
     /** inOut 的 out 。 true 开启 */
+    @Deprecated
     boolean openOut = true;
 
     /**

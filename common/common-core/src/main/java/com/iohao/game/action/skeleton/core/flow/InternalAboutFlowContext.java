@@ -24,6 +24,8 @@ import com.iohao.game.action.skeleton.core.flow.attr.FlowAttr;
 import com.iohao.game.action.skeleton.core.flow.attr.FlowOptionDynamic;
 import com.iohao.game.action.skeleton.eventbus.EventBus;
 import com.iohao.game.action.skeleton.eventbus.EventBusMessage;
+import com.iohao.game.action.skeleton.i18n.Bundle;
+import com.iohao.game.action.skeleton.i18n.MessageKey;
 import com.iohao.game.action.skeleton.kit.ExecutorSelectKit;
 import com.iohao.game.action.skeleton.protocol.HeadMetadata;
 import com.iohao.game.action.skeleton.protocol.RequestMessage;
@@ -31,8 +33,12 @@ import com.iohao.game.action.skeleton.protocol.ResponseMessage;
 import com.iohao.game.action.skeleton.protocol.collect.ResponseCollectMessage;
 import com.iohao.game.action.skeleton.protocol.external.RequestCollectExternalMessage;
 import com.iohao.game.action.skeleton.protocol.external.ResponseCollectExternalMessage;
+import com.iohao.game.action.skeleton.protocol.login.SettingUserIdMessage;
+import com.iohao.game.action.skeleton.protocol.login.SettingUserIdMessageResponse;
+import com.iohao.game.action.skeleton.protocol.login.SettingUserIdResult;
 import com.iohao.game.common.kit.concurrent.executor.ExecutorRegion;
 import com.iohao.game.common.kit.concurrent.executor.ThreadExecutor;
+import com.iohao.game.common.kit.exception.ThrowKit;
 import com.iohao.game.common.kit.trace.TraceKit;
 import lombok.experimental.UtilityClass;
 import org.slf4j.MDC;
@@ -75,6 +81,8 @@ import java.util.function.Supplier;
  * @date 2023-12-27
  */
 interface SimpleContext extends SimpleAttachment
+        // Login（setting userId）
+        , UserIdSetting
         // 分布式事件总线相关通信
         , SimpleCommunicationEventBus
         // 广播相关通信
@@ -110,7 +118,7 @@ interface SimpleAttachment extends SimpleCommunicationInvokeExternalModule {
         long userId = headMetadata.getUserId();
 
         if (userId <= 0) {
-            throw new RuntimeException("userId <= 0");
+            ThrowKit.ofRuntimeException("userId <= 0");
         }
 
         // 将元信息更新到 HeadMetadata 中
@@ -570,8 +578,7 @@ interface SimpleCommunicationBroadcast extends SimpleCommunication {
      * @see HeadMetadata#getCmdInfo()
      */
     default void broadcastMe(Object bizData) {
-        var headMetadata = this.getHeadMetadata();
-        var cmdInfo = headMetadata.getCmdInfo();
+        var cmdInfo = this.getCmdInfo();
         this.broadcastMe(cmdInfo, bizData);
     }
 
@@ -593,6 +600,10 @@ interface SimpleCommunicationBroadcast extends SimpleCommunication {
      */
     default void broadcastMe(ResponseMessage responseMessage) {
         var userId = this.getUserId();
+        if (userId == 0) {
+            ThrowKit.ofRuntimeException(Bundle.getMessage(MessageKey.bindingUserId));
+        }
+
         this.broadcast(responseMessage, userId);
     }
 
@@ -682,8 +693,7 @@ interface SimpleCommunicationBroadcast extends SimpleCommunication {
      * @see HeadMetadata#getCmdInfo()
      */
     default void broadcastOrderMe(Object bizData) {
-        var headMetadata = this.getHeadMetadata();
-        var cmdInfo = headMetadata.getCmdInfo();
+        var cmdInfo = this.getCmdInfo();
         this.broadcastOrderMe(cmdInfo, bizData);
     }
 
@@ -832,7 +842,7 @@ interface SimpleCommunicationInvokeExternalModule extends SimpleCommunication {
     }
 
     /**
-     * 创建 RequestCollectExternalMessage，{@link RequestCollectExternalMessage} 会附带 userId、traceId 相关信息
+     * 创建 RequestCollectExternalMessage，会为 {@link RequestCollectExternalMessage} 添加 userId、traceId 相关信息
      *
      * @param bizCode 业务码
      * @return RequestCollectExternalMessage
@@ -842,7 +852,7 @@ interface SimpleCommunicationInvokeExternalModule extends SimpleCommunication {
     }
 
     /**
-     * 创建 RequestCollectExternalMessage，{@link RequestCollectExternalMessage} 会附带 userId、traceId 相关信息
+     * 创建 RequestCollectExternalMessage，会为 {@link RequestCollectExternalMessage} 添加 userId、traceId 相关信息
      *
      * @param bizCode 业务码
      * @param data    业务数据
@@ -864,7 +874,7 @@ interface SimpleCommunicationInvokeExternalModule extends SimpleCommunication {
     }
 
     /**
-     * 【游戏逻辑服】访问【游戏对外服】，为会 {@link RequestCollectExternalMessage} 会附带 userId、traceId 相关信息，
+     * 【游戏逻辑服】访问【游戏对外服】，会为 {@link RequestCollectExternalMessage} 添加 userId、traceId 相关信息，
      * 如果 request 没有指定 sourceClientId，将会访问所有的游戏对外服。
      * <pre>
      *     <a href="https://www.yuque.com/iohao/game/ivxsw5">文档 - 获取游戏对外服的数据与扩展</a>
@@ -930,7 +940,7 @@ interface SimpleCommunicationInvokeExternalModule extends SimpleCommunication {
     }
 
     /**
-     * 【游戏逻辑服】访问【游戏对外服】，为会 {@link RequestCollectExternalMessage} 会附带 userId、traceId 相关信息，
+     * 【游戏逻辑服】访问【游戏对外服】，会为 {@link RequestCollectExternalMessage} 添加 userId、traceId 相关信息，
      * 如果 request 没有指定 sourceClientId，将会访问所有的游戏对外服。
      * <pre>
      *     <a href="https://www.yuque.com/iohao/game/ivxsw5">文档 - 获取游戏对外服的数据与扩展</a>
@@ -1462,38 +1472,50 @@ interface SimpleExecutor extends SimpleCommon {
      * @return 虚拟线程执行器
      */
     default Executor getVirtualExecutor() {
+        return this.getVirtualThreadExecutor().executor();
+    }
+
+    /**
+     * 玩家对应的虚拟线程执行器 ThreadExecutor
+     *
+     * @return 虚拟线程执行器 ThreadExecutor
+     * @since 21.17
+     */
+    default ThreadExecutor getVirtualThreadExecutor() {
         // 得到用户对应的虚拟线程执行器
         var headMetadata = this.getHeadMetadata();
         var executorIndex = ExecutorSelectKit.getExecutorIndex(headMetadata);
 
-        ExecutorRegion executorRegion = this.getExecutorRegion();
-        ThreadExecutor threadExecutor = executorRegion.getUserVirtualThreadExecutor(executorIndex);
-        return threadExecutor.executor();
+        var executorRegion = this.getExecutorRegion();
+        return executorRegion.getUserVirtualThreadExecutor(executorIndex);
     }
 
     /**
-     * 玩家对应的用户线程执行器
-     * <pre>
-     *     该执行器也是消费 action 的执行器
-     * </pre>
+     * 玩家对应的用户线程执行器，该执行器也是消费 action 的执行器
      *
      * @return 用户线程执行器
      */
     default Executor getExecutor() {
+        return getThreadExecutor().executor();
+    }
+
+    /**
+     * 玩家对应的用户线程执行器 ThreadExecutor，该执行器也是消费 action 的执行器
+     *
+     * @return 用户线程执行器 ThreadExecutor
+     * @since 21.17
+     */
+    default ThreadExecutor getThreadExecutor() {
         // 得到用户对应的用户线程执行器
         var headMetadata = this.getHeadMetadata();
         var executorIndex = ExecutorSelectKit.getExecutorIndex(headMetadata);
 
-        ExecutorRegion executorRegion = this.getExecutorRegion();
-        ThreadExecutor threadExecutor = executorRegion.getUserThreadExecutor(executorIndex);
-        return threadExecutor.executor();
+        var executorRegion = this.getExecutorRegion();
+        return executorRegion.getUserThreadExecutor(executorIndex);
     }
 
     /**
-     * 使用用户线程执行任务
-     * <pre>
-     *     该方法具备全链路调用日志跟踪
-     * </pre>
+     * 使用用户线程执行任务，该方法具备全链路调用日志跟踪
      *
      * @param command 任务
      */
@@ -1510,10 +1532,7 @@ interface SimpleExecutor extends SimpleCommon {
     }
 
     /**
-     * 使用虚拟线程执行任务
-     * <pre>
-     *     该方法具备全链路调用日志跟踪
-     * </pre>
+     * 使用虚拟线程执行任务，该方法具备全链路调用日志跟踪
      *
      * @param command 任务
      */
@@ -1534,6 +1553,13 @@ interface SimpleExecutor extends SimpleCommon {
  * 帮助 FlowContext 得到创建 barMessage 消息的能力
  */
 interface SimpleBarMessageCreator extends SimpleCommon {
+    /**
+     * Create a RequestMessage object and use some of the properties of the current FlowContext HeadMetadata.
+     * see {@link HeadMetadata#cloneHeadMetadata()}
+     *
+     * @param cmdInfo cmdInfo
+     * @return request
+     */
     default RequestMessage createRequestMessage(CmdInfo cmdInfo) {
         return createRequestMessage(cmdInfo, null);
     }
@@ -1634,6 +1660,82 @@ interface SimpleCommon extends FlowOptionDynamic {
      */
     default long getUserId() {
         return this.getHeadMetadata().getUserId();
+    }
+}
+
+interface UserIdSetting extends SimpleCommunication {
+
+    /**
+     * After binding the userId, it means the login is successful
+     *
+     * @param userId userId
+     * @return true:login success
+     * @since 21.23
+     */
+    default boolean bindingUserId(long userId) {
+        return this.bindingUserIdAndGetResult(userId).success();
+    }
+
+    /**
+     * After binding the userId, it means the login is successful
+     *
+     * @param userId userId
+     * @return result
+     * @since 21.23
+     */
+    default SettingUserIdResult bindingUserIdAndGetResult(final long userId) {
+
+        if (userId <= 0) {
+            return SettingUserIdResult.ofError("The userId must be greater than 0");
+        }
+
+        var headMetadata = getHeadMetadata();
+        if (headMetadata.getUserId() != 0) {
+            String message = "The setting of the parameter userId failed because the userId already exists. [parameterUserId:%d userId:%d]"
+                    .formatted(userId, headMetadata.getUserId());
+
+            return SettingUserIdResult.ofError(message);
+        }
+
+        try {
+            var settingUserIdMessage = SettingUserIdMessage.of(userId, headMetadata);
+            SettingUserIdMessageResponse settingUserIdMessageResponse = this.getBrokerClientContext().invokeSync(settingUserIdMessage);
+
+            if (Objects.isNull(settingUserIdMessageResponse) || !settingUserIdMessageResponse.isSuccess()) {
+                return SettingUserIdResult.ofError("Login Failed");
+            }
+        } catch (Exception e) {
+            return SettingUserIdResult.ofError(e);
+        }
+
+        headMetadata.setUserId(userId);
+        return SettingUserIdResult.SUCCESS;
+    }
+
+    /**
+     * After setting the userId, it means the login is successful
+     *
+     * @param userId userId
+     * @return true:login success
+     * @since 21.19
+     * @deprecated see {@link #bindingUserId(long)}
+     */
+    @Deprecated
+    default boolean setUserId(long userId) {
+        return this.bindingUserId(userId);
+    }
+
+    /**
+     * After setting the userId, it means the login is successful
+     *
+     * @param userId userId
+     * @return result
+     * @since 21.19
+     * @deprecated see {@link #bindingUserIdAndGetResult(long)}
+     */
+    @Deprecated
+    default SettingUserIdResult setUserIdAndGetResult(final long userId) {
+        return this.bindingUserIdAndGetResult(userId);
     }
 }
 

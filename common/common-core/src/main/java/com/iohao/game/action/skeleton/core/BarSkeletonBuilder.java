@@ -25,7 +25,9 @@ import com.iohao.game.action.skeleton.core.flow.internal.*;
 import com.iohao.game.action.skeleton.core.action.parser.ActionParserListener;
 import com.iohao.game.action.skeleton.core.runner.Runner;
 import com.iohao.game.action.skeleton.core.runner.Runners;
+import com.iohao.game.action.skeleton.toy.IoGameBanner;
 import com.iohao.game.common.kit.concurrent.executor.*;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -52,13 +54,13 @@ public final class BarSkeletonBuilder {
     final Runners runners = new Runners();
     /** handler 列表 */
     final List<Handler> handlerList = new LinkedList<>();
-    /** ActionCommand 执行前与执行后的逻辑钩子类 */
-    final List<ActionMethodInOut> inOutList = new LinkedList<>();
     /** action class */
     final List<Class<?>> actionControllerClazzList = new LinkedList<>();
     /** 错误码 */
+    @Deprecated
     final List<MsgExceptionInfo> msgExceptionInfoList = new ArrayList<>();
     /** action 构建时的钩子方法 */
+    @Setter(AccessLevel.PRIVATE)
     ActionParserListeners actionParserListeners = new ActionParserListeners();
     /** action工厂 */
     ActionFactoryBean<Object> actionFactoryBean = new DefaultActionFactoryBean<>();
@@ -78,6 +80,8 @@ public final class BarSkeletonBuilder {
     FlowContextFactory flowContextFactory = FlowContext::new;
     /** 线程执行器 */
     ExecutorRegion executorRegion;
+    /** InOut 插件相管理器，ActionCommand 执行前与执行后的逻辑钩子类 */
+    InOutManager inOutManager = InOutManager.ofPipeline();
 
     BarSkeletonBuilder() {
     }
@@ -115,10 +119,9 @@ public final class BarSkeletonBuilder {
                 // 线程执行器
                 .setExecutorRegion(this.executorRegion)
                 // runners 机制
-                .setRunners(this.runners);
-
-        // inout
-        this.extractedInOut(barSkeleton);
+                .setRunners(this.runners)
+                // inout
+                .setInOutManager(this.inOutManager);
 
         // 构建 actionMapping
         this.extractedActionCommand(barSkeleton);
@@ -132,6 +135,10 @@ public final class BarSkeletonBuilder {
         this.runners.setBarSkeleton(barSkeleton);
 
         this.actionParserListeners = null;
+
+        if (IoGameBanner.troublemaker) {
+            IoGameBanner.troubleCounter++;
+        }
 
         return barSkeleton;
     }
@@ -171,7 +178,7 @@ public final class BarSkeletonBuilder {
      */
     public BarSkeletonBuilder addInOut(ActionMethodInOut inOut) {
         Objects.requireNonNull(inOut);
-        this.inOutList.add(inOut);
+        this.inOutManager.addInOut(inOut);
         return this;
     }
 
@@ -189,11 +196,6 @@ public final class BarSkeletonBuilder {
     public BarSkeletonBuilder addActionParserListener(ActionParserListener listener) {
         this.actionParserListeners.addActionParserListener(listener);
         return this;
-    }
-
-    private void extractedInOut(BarSkeleton barSkeleton) {
-        var inOutManager = new InOutManager(this.setting, this.inOutList);
-        barSkeleton.setInOutManager(inOutManager);
     }
 
     private void extractedActionCommand(BarSkeleton barSkeleton) {

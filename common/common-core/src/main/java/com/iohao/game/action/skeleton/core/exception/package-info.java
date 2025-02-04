@@ -17,12 +17,37 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 /**
- * 系统异常全局统一处理
+ * 业务框架 - 系统异常全局统一处理，<a href="https://www.yuque.com/iohao/game/avlo99">断言 + 异常机制 = 清晰简洁的代码</a>
+ * <p>
+ * 使用示例
+ * <pre>{@code
+ * // 自定义错误码
+ * @Getter
+ * public enum GameCodeEnum implements MsgExceptionInfo {
+ *     levelMax(202,"等级超出"),
+ *     ;
+ *     // 消息码
+ *     final int code;
+ *     // 消息
+ *     final String msg;
  *
- * <pre>
- *     关于异常机制的解释可以参考这里:
- *     <a href="https://www.yuque.com/iohao/game/avlo99">断言 + 异常机制 = 清晰简洁的代码</a>
- * </pre>
+ *     GameCodeEnum(int code, String msg) {
+ *         this.code = code;
+ *         this.msg = msg;
+ *     }
+ * }
+ *
+ * // 使用
+ * @ActionController(1)
+ * public class DemoAction {
+ *     @ActionMethod(1)
+ *     public void here(HelloReq helloReq) {
+ *         // 断言必须是 true, 否则抛出异常
+ *         GameCodeEnum.levelMax.assertTrue(helloReq.level > 10);
+ *     }
+ * }
+ *
+ * }</pre>
  *
  * @author 渔民小镇
  * @date 2022-01-14

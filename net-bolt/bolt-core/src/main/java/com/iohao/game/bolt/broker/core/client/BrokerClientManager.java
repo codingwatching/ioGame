@@ -20,14 +20,11 @@ package com.iohao.game.bolt.broker.core.client;
 
 import com.alipay.remoting.ConnectionEventProcessor;
 import com.alipay.remoting.ConnectionEventType;
-import com.alipay.remoting.rpc.RpcClient;
 import com.alipay.remoting.rpc.protocol.UserProcessor;
 import com.iohao.game.action.skeleton.core.BarSkeleton;
 import com.iohao.game.bolt.broker.core.common.IoGameGlobalConfig;
 import com.iohao.game.bolt.broker.core.loadbalance.ElementSelector;
 import com.iohao.game.bolt.broker.core.loadbalance.ElementSelectorFactory;
-import com.iohao.game.bolt.broker.core.loadbalance.RandomElementSelector;
-import com.iohao.game.common.kit.concurrent.TaskKit;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -35,8 +32,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.jctools.maps.NonBlockingHashMap;
 
 import java.util.*;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -72,7 +67,7 @@ public final class BrokerClientManager {
     /** 业务框架 */
     BarSkeleton barSkeleton;
     /** 元素选择器生产工厂 */
-    ElementSelectorFactory<BrokerClientItem> elementSelectorFactory = RandomElementSelector::new;
+    ElementSelectorFactory<BrokerClientItem> elementSelectorFactory = ElementSelector::of;
     /** BrokerClientItem 元素选择器 */
     ElementSelector<BrokerClientItem> elementSelector;
     /** 消息发送超时时间 */
@@ -108,6 +103,11 @@ public final class BrokerClientManager {
         // 初始化
         brokerClientItem.startup();
 
+        register(brokerClientItem);
+    }
+
+    public void register(BrokerClientItem brokerClientItem) {
+        String address = brokerClientItem.getAddress();
         // 添加映射关系
         this.brokerClientItemMap.put(address, brokerClientItem);
         // 生成负载对象
@@ -127,17 +127,8 @@ public final class BrokerClientManager {
 
         if (IoGameGlobalConfig.openLog) {
             Set<String> keySet = brokerClientItemMap.keySet();
-            log.info("当前网关数量 : {} {}", this.brokerClientItemMap.size(), keySet);
-        }
-    }
-
-    private void a() {
-        AtomicBoolean flag = new AtomicBoolean();
-        if (flag.compareAndSet(false, true)) {
-            TaskKit.runInterval(() -> {
-                Set<String> keySet = brokerClientItemMap.keySet();
-                log.info("当前网关数量 : {} {}", this.brokerClientItemMap.size(), keySet);
-            }, 5, TimeUnit.SECONDS);
+            String message = "当前网关数量 : %s {}".formatted(this.brokerClientItemMap.size());
+            log.info(message, keySet);
         }
     }
 
@@ -163,6 +154,10 @@ public final class BrokerClientManager {
                 .stream()
                 .filter(brokerClientItem -> brokerClientItem.getStatus() == BrokerClientItem.Status.ACTIVE)
                 .count();
+    }
+
+    public int countItem() {
+        return brokerClientItemMap.size();
     }
 
     public BrokerClientItem next() {

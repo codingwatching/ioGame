@@ -1,10 +1,11 @@
 package com.iohao.game.action.skeleton.core.flow.internal;
 
-import com.iohao.game.action.skeleton.core.BarMessageKit;
 import com.iohao.game.action.skeleton.core.CmdInfo;
+import com.iohao.game.action.skeleton.core.data.TestDataKit;
 import com.iohao.game.action.skeleton.core.flow.FlowContext;
-import com.iohao.game.action.skeleton.protocol.RequestMessage;
+import com.iohao.game.action.skeleton.toy.IoGameBanner;
 import com.iohao.game.common.kit.RandomKit;
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.time.LocalDate;
@@ -20,12 +21,10 @@ public class TimeRangeInOutTest {
 
     @Test
     public void fuckOut() {
+        FlowContext flowContext = TestDataKit.ofFlowContext(CmdInfo.of(1, 1));
+
         TimeRangeInOut inOut = new TimeRangeInOut();
         setListener(inOut);
-
-        RequestMessage requestMessage = BarMessageKit.createRequestMessage(CmdInfo.of(1, 1));
-        FlowContext flowContext = new FlowContext();
-        flowContext.setRequest(requestMessage);
 
         TimeRangeInOut.TimeRangeDayRegion region = inOut.region;
 
@@ -40,9 +39,10 @@ public class TimeRangeInOutTest {
             count.increment();
         }
 
-        print(inOut);
+        var timeRangeDay = region.getTimeRangeDay(localDate);
+        Assert.assertEquals(timeRangeDay.count().sum(), count.sum());
 
-        System.out.println(count);
+        print(inOut);
     }
 
     private static void print(TimeRangeInOut inOut) {
@@ -51,7 +51,7 @@ public class TimeRangeInOutTest {
         // 取指定日期的 TimeRangeDay 对象
         LocalDate localDate = LocalDate.now();
         TimeRangeInOut.TimeRangeDay timeRangeDay = region.getTimeRangeDay(localDate);
-        System.out.println(timeRangeDay);
+        IoGameBanner.println(timeRangeDay);
     }
 
     private void setListener(TimeRangeInOut inOut) {
@@ -59,7 +59,7 @@ public class TimeRangeInOutTest {
             @Override
             public void callbackYesterday(TimeRangeInOut.TimeRangeDay timeRangeYesterday) {
                 // 昨日的全天统计数据对象
-                System.out.println(timeRangeYesterday);
+                IoGameBanner.println(timeRangeYesterday);
 
                 timeRangeYesterday.stream().forEach(timeRangeHour -> {
                     // 几点

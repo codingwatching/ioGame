@@ -56,7 +56,7 @@ public final class ActionMethodDocument {
     /** true 表示参数是 List 类型 */
     boolean bizDataTypeIsList;
     /** true 表示协议碎片，false 表示开发者自定义的协议 */
-    boolean bizDataTypeIsInternal;
+    boolean internalBizDataType;
     /** 参数类型（原始的，即使参数是 List，也会取泛型） */
     String actualTypeName;
 
@@ -88,7 +88,13 @@ public final class ActionMethodDocument {
         this.actionSimpleName = actionCommand.getActionControllerClazz().getSimpleName();
 
         // 方法名
-        this.actionMethodName = StrKit.firstCharToUpperCase(actionCommand.getActionMethodName());
+        var documentMethod = actionCommand.getAnnotation(DocumentMethod.class);
+        if (Objects.nonNull(documentMethod)) {
+            this.actionMethodName = StrKit.firstCharToUpperCase(documentMethod.value());
+        } else {
+            this.actionMethodName = StrKit.firstCharToUpperCase(actionCommand.getActionMethodName());
+        }
+
         // 方法注释
         this.methodComment = this.actionCommandDoc.getComment();
 
@@ -129,7 +135,7 @@ public final class ActionMethodDocument {
         // 方法参数类型
         var typeMappingRecord = this.typeMappingDocument.getTypeMappingRecord(actualTypeArgumentClazz);
         this.bizDataTypeIsList = paramInfo.isList();
-        this.bizDataTypeIsInternal = typeMappingRecord.isInternalType();
+        this.internalBizDataType = typeMappingRecord.isInternalType();
 
         // sdk 方法名
         this.sdkMethodName = typeMappingRecord.getOfMethodTypeName(this.bizDataTypeIsList);
@@ -141,7 +147,7 @@ public final class ActionMethodDocument {
         this.actualTypeName = typeMappingRecord.getParamTypeName();
     }
 
-    ActionCommand.ParamInfo getBizParam(ActionCommand actionCommand) {
+    private ActionCommand.ParamInfo getBizParam(ActionCommand actionCommand) {
         return actionCommand.streamParamInfo()
                 // 只处理业务参数
                 .filter(ActionCommand.ParamInfo::isBizData)

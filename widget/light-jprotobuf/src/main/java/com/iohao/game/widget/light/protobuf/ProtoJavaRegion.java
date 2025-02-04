@@ -19,14 +19,16 @@
 package com.iohao.game.widget.light.protobuf;
 
 import com.iohao.game.common.kit.StrKit;
-import com.iohao.game.common.kit.TimeFormatterKit;
+import com.iohao.game.common.kit.time.FormatTimeKit;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import lombok.experimental.FieldDefaults;
+import org.jctools.maps.NonBlockingHashMap;
 
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * @author 渔民小镇
@@ -40,8 +42,8 @@ public class ProtoJavaRegion {
     String fileName;
     String filePackage;
 
-    final Map<Class<?>, ProtoJava> protoJavaMap = new HashMap<>();
-    final List<ProtoJava> protoJavaList = new ArrayList<>();
+    final Map<Class<?>, ProtoJava> protoJavaMap = new NonBlockingHashMap<>();
+    final List<ProtoJava> protoJavaList = new CopyOnWriteArrayList<>();
     final ProtoJavaRegionHead regionHead = new ProtoJavaRegionHead();
 
     public void addProtoJava(ProtoJava protoJava) {
@@ -86,9 +88,9 @@ public class ProtoJavaRegion {
         String protoHead = this.regionHead.toProtoHead();
 
         String firstLine = """
-                // 生成时间 %s
+                // generate %s , protoSize: %s
                 // https://github.com/iohao/ioGame
-                """.formatted(TimeFormatterKit.formatter());
+                """.formatted(FormatTimeKit.format(), protoJavaList.size());
 
         StringBuilder builder = new StringBuilder();
         builder.append(firstLine);

@@ -6,7 +6,7 @@
 
     <groupId>com.iohao.game</groupId>
     <artifactId>ioGame</artifactId>
-    <version>21.13</version>
+    <version>21.23</version>
     <name>ioGame</name>
     <description>
         生产资料公有制。
@@ -17,6 +17,7 @@
 
     <modules>
         <!-- 网络游戏框架 - 业务框架 -->
+        <module>common/common-micro-kit</module>
         <module>common/common-kit</module>
         <module>common/common-core</module>
         <!--数据校验模块-->
@@ -32,25 +33,18 @@
         <!-- BrokerClient （逻辑服） -->
         <module>net-bolt/bolt-client</module>
 
-        <!-- 小部件 : 任务延时器 -->
-        <module>widget/light-timer-task</module>
         <!-- 小部件 : 领域事件 -->
         <module>widget/light-domain-event</module>
         <!-- 小部件 : 多环境切换 -->
         <module>widget/light-profile</module>
         <!-- 小部件 : jprotobuf 增强 -->
         <module>widget/light-jprotobuf</module>
-        <!-- 小部件 ： 基于redis实现的分布式锁 -->
-        <module>widget/light-redis-lock</module>
-        <!-- 小部件 ： 基于redis实现的分布式锁 for springBootStarter -->
-        <module>widget/light-redis-lock-spring-boot-starter</module>
         <!-- 小部件 ： 压测&模拟客户端请求 -->
         <module>widget/light-client</module>
         <!-- 小部件 : 桌游类、房间类游戏的扩展模块，进一步减少开发实践过程中的工作量 -->
         <module>widget/light-game-room</module>
-
-        <module>common/common-micro-kit</module>
         <module>widget/other-tool</module>
+        <module>widget/generate-code</module>
     </modules>
 
     <!--统一管理版本 的一个父 pom-->
@@ -60,7 +54,7 @@
         <encoding>UTF-8</encoding>
 
         <!-- 网络库 : https://mvnrepository.com/artifact/io.netty/netty-all -->
-        <netty.version>4.1.112.Final</netty.version>
+        <netty.version>4.1.116.Final</netty.version>
         <!--  bolt https://mvnrepository.com/artifact/com.alipay.sofa/bolt  -->
         <bolt.version>1.6.6</bolt.version>
         <!-- hessian 格式化 https://mvnrepository.com/artifact/com.caucho/hessian -->
@@ -73,33 +67,27 @@
         <!-- JCTools 是一款对jdk并发数据结构进行增强的并发工具 see http://jctools.github.io/JCTools/ https://mvnrepository.com/artifact/org.jctools/jctools-core -->
         <jctools-core.version>4.0.5</jctools-core.version>
 
-        <!-- redis internal : https://mvnrepository.com/artifact/org.redisson/redisson -->
-        <redisson.version>3.17.7</redisson.version>
         <!-- json 解析器 : https://mvnrepository.com/artifact/com.alibaba.fastjson2/fastjson2 -->
         <fastjson.version>2.0.46</fastjson.version>
 
         <!--  reflectasm 高性能的反射处理 https://mvnrepository.com/artifact/com.esotericsoftware/reflectasm  -->
         <reflectasm.version>1.11.9</reflectasm.version>
 
-        <!--  cache2k https://mvnrepository.com/artifact/org.cache2k -->
-        <cache2k.version>1.2.4.Final</cache2k.version>
         <!--  disruptor https://mvnrepository.com/artifact/com.lmax/disruptor -->
         <disruptor.version>3.4.4</disruptor.version>
 
         <!-- JSR-380 bean 验证框架 https://mvnrepository.com/artifact/org.hibernate.validator/hibernate-validator -->
-        <hibernate-validator.version>7.0.4.Final</hibernate-validator.version>
+        <hibernate-validator.version>8.0.1.Final</hibernate-validator.version>
         <!-- JSR-380 https://mvnrepository.com/artifact/jakarta.validation/jakarta.validation-api -->
-        <jakarta.validation-api.version>3.0.2</jakarta.validation-api.version>
+        <jakarta.validation-api.version>3.1.0</jakarta.validation-api.version>
         <!-- JSR-380 https://mvnrepository.com/artifact/org.glassfish/jakarta.el -->
         <jakarta.el.version>4.0.2</jakarta.el.version>
 
         <!-- temp spring boot https://mvnrepository.com/artifact/org.springframework/spring-core -->
-        <spring.version>6.1.2</spring.version>
-        <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter -->
-        <springboot.version>3.2.1</springboot.version>
+        <spring.version>6.1.12</spring.version>
 
         <!-- slf4j https://mvnrepository.com/artifact/org.slf4j/slf4j-api -->
-        <slf4j-api.version>2.0.11</slf4j-api.version>
+        <slf4j-api.version>2.0.16</slf4j-api.version>
         <!-- slf4j https://mvnrepository.com/artifact/ch.qos.logback/logback-classic -->
         <logback.version>1.4.14</logback.version>
         <!-- lombok 消除冗长的 Java 代码 https://mvnrepository.com/artifact/org.projectlombok/lombok -->
@@ -114,10 +102,7 @@
         -->
         <jprotobuf.version>2.4.23</jprotobuf.version>
         <!-- https://mvnrepository.com/artifact/com.google.protobuf/protobuf-java -->
-        <protobuf-java.version>3.25.3</protobuf-java.version>
-
-        <!-- 后期整理需要移除的 https://mvnrepository.com/artifact/org.yaml/snakeyaml -->
-        <snakeyaml.version>1.33</snakeyaml.version>
+        <protobuf-java.version>3.25.5</protobuf-java.version>
     </properties>
 
     <dependencies>

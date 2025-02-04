@@ -22,6 +22,7 @@ import com.iohao.game.action.skeleton.core.CmdInfo;
 import com.iohao.game.action.skeleton.protocol.wrapper.IntValue;
 import com.iohao.game.action.skeleton.protocol.wrapper.LongValue;
 import com.iohao.game.action.skeleton.protocol.wrapper.StringValue;
+import com.iohao.game.common.kit.exception.ThrowKit;
 import com.iohao.game.external.client.command.InputCommand;
 import com.iohao.game.external.client.command.RequestDataDelegate;
 import com.iohao.game.external.client.kit.AssertKit;
@@ -95,7 +96,8 @@ public class InputCommandCreate {
             var inputName = ClientKit.toInputName(cmdInfo);
             InputCommand inputCommand = clientUserInputCommands.getInputCommand(inputName);
             if (Objects.nonNull(inputCommand)) {
-                throw new RuntimeException("存在重复的路由命令 : " + cmdInfo);
+                // 存在重复的路由命令
+                ThrowKit.ofRuntimeException("There are duplicate routing commands : " + cmdInfo);
             }
         }
     }
@@ -124,8 +126,7 @@ public class InputCommandCreate {
 
     public RequestDataDelegate nextParamLong(String paramTips) {
         return () -> {
-            String info = "请输入{} | 参数类型 : {}";
-            log.info(info, paramTips, long.class);
+            log.info("请输入{} | 参数类型 : long.class", paramTips);
 
             long longValue = ScannerKit.nextLong();
             return LongValue.of(longValue);
@@ -139,8 +140,8 @@ public class InputCommandCreate {
 
     public RequestDataDelegate nextParamInt(String paramTips) {
         return () -> {
-            String info = "请输入{} | 参数类型 : {}";
-            log.info(info, paramTips, int.class);
+            String info = "请输入{} | 参数类型 : int.class";
+            log.info(info, paramTips);
 
             int intValue = ScannerKit.nextInt();
             return IntValue.of(intValue);
@@ -154,8 +155,8 @@ public class InputCommandCreate {
 
     public RequestDataDelegate nextParamString(String paramTips) {
         return () -> {
-            String info = "请输入{} | 参数类型 : {}";
-            log.info(info, paramTips, String.class);
+            String info = "请输入{} | 参数类型 : String.class";
+            log.info(info, paramTips);
             String s = ScannerKit.nextLine();
             Objects.requireNonNull(s);
 

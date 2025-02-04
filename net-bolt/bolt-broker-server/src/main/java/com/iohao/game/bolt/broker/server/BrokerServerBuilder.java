@@ -26,9 +26,7 @@ import com.alipay.remoting.rpc.protocol.UserProcessor;
 import com.iohao.game.bolt.broker.cluster.BrokerClusterManager;
 import com.iohao.game.bolt.broker.cluster.BrokerClusterManagerBuilder;
 import com.iohao.game.bolt.broker.cluster.BrokerRunModeEnum;
-import com.iohao.game.bolt.broker.core.aware.AwareInject;
-import com.iohao.game.bolt.broker.core.aware.CmdRegionsAware;
-import com.iohao.game.bolt.broker.core.aware.UserProcessorExecutorAware;
+import com.iohao.game.bolt.broker.core.aware.*;
 import com.iohao.game.bolt.broker.core.common.IoGameGlobalConfig;
 import com.iohao.game.bolt.broker.server.aware.BrokerClientModulesAware;
 import com.iohao.game.bolt.broker.server.aware.BrokerServerAware;
@@ -41,6 +39,7 @@ import com.iohao.game.bolt.broker.server.processor.*;
 import com.iohao.game.bolt.broker.server.processor.ConnectionEventBrokerProcessor;
 import com.iohao.game.bolt.broker.server.service.BrokerClientModules;
 import com.iohao.game.bolt.broker.server.service.DefaultBrokerClientModules;
+import com.iohao.game.common.kit.exception.ThrowKit;
 import lombok.AccessLevel;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -249,11 +248,11 @@ public class BrokerServerBuilder implements AwareInject {
 
     private void checked() {
         if (this.port <= 0) {
-            throw new RuntimeException("port error!");
+            ThrowKit.ofRuntimeException("port error!");
         }
 
         if (Objects.isNull(this.brokerRunMode)) {
-            throw new RuntimeException("brokerRunMode expected: " + Arrays.toString(BrokerRunModeEnum.values()));
+            ThrowKit.ofRuntimeException("brokerRunMode expected: " + Arrays.toString(BrokerRunModeEnum.values()));
         }
     }
 
@@ -336,18 +335,14 @@ public class BrokerServerBuilder implements AwareInject {
          * 虽然这里可以开放给开发者来控制，但目前暂时不考虑开放
          */
 
+        AwareKit.aware(obj);
+
         if (obj instanceof BrokerServerAware aware) {
             aware.setBrokerServer(this.brokerServer);
         }
 
         if (obj instanceof CmdRegionsAware aware) {
             aware.setCmdRegions(this.brokerServer.getCmdRegions());
-        }
-
-        if (obj instanceof UserProcessorExecutorAware aware && Objects.isNull(aware.getUserProcessorExecutor())) {
-            // 如果开发者没有自定义 Executor，则使用框架提供的 Executor 策略
-            Executor executor = IoGameGlobalConfig.getExecutor(aware);
-            aware.setUserProcessorExecutor(executor);
         }
 
         if (obj instanceof BrokerClientModulesAware aware) {
